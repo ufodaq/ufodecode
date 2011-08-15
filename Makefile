@@ -1,7 +1,7 @@
 CC     = gcc
-CFLAGS = -g -std=c99
+CFLAGS = -g -ggdb -std=c99 -Wall -Werror
 
-all: ipedec 
+all: ipedec deinterlace
 
 ipedec: ipedec.o
 	$(CC) $(LDFLAGS) -o $@ $^
@@ -9,8 +9,14 @@ ipedec: ipedec.o
 ipedec.o: ipedec.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
+deinterlace: deinterlace.o
+	$(CC) $(LDFLAGS) -o $@ $^
+
+deinterlace.o: deinterlace.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+
 clean:
-	rm -f ipedec ipedec.o
+	rm -f ipedec ipedec.o deinterlace deinterlace.o
 
 .PHONY: clean
 
