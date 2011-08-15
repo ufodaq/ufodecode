@@ -17,7 +17,7 @@ char *strdup(const char *str)
     return dup;
 }
 
-int process_simple_frame(uint16_t *frame_in, uint16_t *frame_out, int width, int height)
+int process_simple_frame(const uint16_t *frame_in, uint16_t *frame_out, int width, int height)
 {
     const size_t row_size_bytes = width * sizeof(uint16_t);
 
@@ -35,6 +35,19 @@ int process_simple_frame(uint16_t *frame_in, uint16_t *frame_out, int width, int
 
     /* Copy last row */
     memcpy(frame_out, frame_in + width * (height - 1), row_size_bytes);
+    return 0;
+}
+
+int weave(const uint16_t *frames_in, uint16_t *frame_out, int width, int height)
+{
+    const size_t row_size_bytes = width * sizeof(uint16_t);
+    const size_t frame_offset = width * height;
+    for (int row = 0; row < height; row++) {
+        memcpy(frame_out, frames_in + row*width, row_size_bytes); 
+        frame_out += width;
+        memcpy(frame_out, frames_in + frame_offset + row*width, row_size_bytes); 
+        frame_out += width;
+    }
     return 0;
 }
 
@@ -69,11 +82,18 @@ int process_file(const char *filename, int width, int height, int num_lines_skip
 
     const int num_frames = file_size / (width * height * sizeof(uint16_t));
     printf("de-interlacing %i frames...\n", num_frames);
+    /*
     for (int frame = 0; frame < num_frames; frame++) {
         process_simple_frame(
                 frame_in_buffer + frame * (width * height),
                 frame_out_buffer + frame * (width * height * 2),
                 width, height);
+    }
+    */
+    for (int frame = 0; frame < num_frames-1; frame++) {
+        weave(frame_in_buffer + frame * (width * height),
+              frame_out_buffer + frame * (width * height * 2),
+              width, height);
     }
 
     fp = fopen("result.raw", "wb");
@@ -133,3 +153,4 @@ int main(int argc, char const* argv[])
     free(file_name);
     return 0;
 }
+
