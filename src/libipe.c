@@ -6,6 +6,7 @@
 #include "libipe.h"
 #include "libipe-private.h"
 #include "config.h"
+#include <xmmintrin.h>
 
 #define IPECAMERA_NUM_CHANNELS 16
 #define IPECAMERA_PIXELS_PER_CHANNEL 128
@@ -84,6 +85,14 @@ static int ipe_decode_frame(uint16_t *pixel_buffer, uint32_t *raw, int num_rows,
     uint32_t data;
     const int bytes = 43;
 
+#ifdef HAVE_SSE
+    const uint32_t mask = 0x3FF;
+    __m128i mmask = _mm_set_epi32(mask, mask, mask, mask);
+    __m128i packed;
+    __m128i tmp1, tmp2;
+    uint32_t result[4] __attribute__ ((aligned (16))) = {0};
+#endif
+
     do {
         info = raw[0];
         row = (info >> 4) & 0x7FF;
@@ -104,16 +113,51 @@ static int ipe_decode_frame(uint16_t *pixel_buffer, uint32_t *raw, int num_rows,
         /* "Correct" missing pixel */
         if ((row < 2) && (pixels == (IPECAMERA_PIXELS_PER_CHANNEL - 1))) {
             pixel_buffer[base] = 0;
-            base++;
-        } 
+            /* base++; */
+        }
 #ifdef DEBUG
         else 
             CHECK_FLAG("number of pixels, %i is expected", pixels == IPECAMERA_PIXELS_PER_CHANNEL, pixels, IPECAMERA_PIXELS_PER_CHANNEL);
 #endif
 
-        for (int i = 1; i < bytes; i++) {
-            data = raw[i];
+#ifdef HAVE_SSE
+        for (int i = 1 ; i < bytes-4; i += 4, base += 12) {
+            packed = _mm_set_epi32(raw[i], raw[i+1], raw[i+2], raw[i+3]);
 
+            tmp1 = _mm_srli_epi32(packed, 20);
+            tmp2 = _mm_and_si128(tmp1, mmask);
+            _mm_storeu_si128((__m128i*) result, tmp2);
+            pixel_buffer[base] = result[0];
+            pixel_buffer[base+3] = result[1];
+            pixel_buffer[base+6] = result[2];
+            pixel_buffer[base+9] = result[3];
+
+            tmp1 = _mm_srli_epi32(packed, 10);
+            tmp2 = _mm_and_si128(tmp1, mmask);
+            _mm_storeu_si128((__m128i*) result, tmp2);
+            pixel_buffer[base+1] = result[0];
+            pixel_buffer[base+4] = result[1];
+            pixel_buffer[base+7] = result[2];
+            pixel_buffer[base+10] = result[3];
+
+            tmp1 = _mm_and_si128(packed, mmask);
+            _mm_storeu_si128((__m128i*) result, tmp1);
+            pixel_buffer[base+2] = result[0];
+            pixel_buffer[base+5] = result[1];
+            pixel_buffer[base+8] = result[2];
+            pixel_buffer[base+11] = result[3];
+        }
+        
+        /* Compute last pixels the usual way */
+        for (int i = bytes-4; i < bytes; i++) {
+            data = raw[i];
+            pixel_buffer[base++] = (data >> 20) & 0x3FF;
+            pixel_buffer[base++] = (data >> 10) & 0x3FF;
+            pixel_buffer[base++] = data & 0x3FF;
+        }
+#else
+        for (int i = 1 ; i < bytes; i++) {
+            data = raw[i];
 #ifdef DEBUG
             header = (data >> 30) & 0x03;   
             CHECK_FLAG("raw data magick", header == 3, header);
@@ -124,9 +168,9 @@ static int ipe_decode_frame(uint16_t *pixel_buffer, uint32_t *raw, int num_rows,
             pixel_buffer[base++] = (data >> 10) & 0x3FF;
             pixel_buffer[base++] = data & 0x3FF;
         }
+#endif
 
         data = raw[bytes];
-
 #ifdef DEBUG
         header = (data >> 30) & 0x03;
         CHECK_FLAG("raw data magick", header == 3, header);
