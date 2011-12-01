@@ -73,7 +73,6 @@ void ipe_decoder_set_raw_data(ipe_decoder decoder, uint32_t *raw, size_t num_byt
     decoder->current_pos = 0;
 }
 
-
 static int ipe_decode_frame(uint16_t *pixel_buffer, uint32_t *raw, int num_rows, int *offset)
 {
     static int channel_order[IPECAMERA_NUM_CHANNELS] = { 15, 13, 14, 12, 10, 8, 11, 7, 9, 6, 5, 2, 4, 3, 0, 1 };
@@ -83,14 +82,14 @@ static int ipe_decode_frame(uint16_t *pixel_buffer, uint32_t *raw, int num_rows,
     int channel = 0;
     int pos = 0;
     uint32_t data;
+    const int bytes = 43;
 
     do {
         info = raw[0];
-        channel = info & 0x0F;
         row = (info >> 4) & 0x7FF;
         int pixels = (info >> 20) & 0xFF;
 
-        channel = channel_order[channel];
+        channel = channel_order[info & 0x0F];
         int base = row * IPECAMERA_WIDTH + channel * IPECAMERA_PIXELS_PER_CHANNEL;
 
 #ifdef DEBUG
@@ -111,12 +110,6 @@ static int ipe_decode_frame(uint16_t *pixel_buffer, uint32_t *raw, int num_rows,
         else 
             CHECK_FLAG("number of pixels, %i is expected", pixels == IPECAMERA_PIXELS_PER_CHANNEL, pixels, IPECAMERA_PIXELS_PER_CHANNEL);
 #endif
-
-        int bytes = 43;
-        /* bytes = pixels / 3; */
-        /* int ppw = pixels - bytes * 3; */
-        /* if (ppw) */ 
-        /*     ++bytes; */
 
         for (int i = 1; i < bytes; i++) {
             data = raw[i];
@@ -259,11 +252,13 @@ int ipe_decoder_get_next_frame(ipe_decoder decoder, uint16_t **pixels, uint32_t 
     if (err)
         return EILSEQ;
 #else
+    *frame_number = raw[pos + 6] & 0xF0000000;
+    *time_stamp = raw[pos + 7] & 0xF0000000;
     pos += 8;
 #endif
 
     err = ipe_decode_frame(*pixels, raw + pos, decoder->height, &advance);
-    if (err) 
+    if (err)
         return EILSEQ;
 
     pos += advance;

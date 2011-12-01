@@ -55,7 +55,7 @@ int main(int argc, char const* argv[])
     struct timeval start, end;
     long seconds = 0L, useconds = 0L;
 
-    /* FILE *fp = fopen("test.raw", "wb"); */
+    FILE *fp = fopen("test.raw", "wb");
 
     while (!err) {
         gettimeofday(&start, NULL);
@@ -66,10 +66,10 @@ int main(int argc, char const* argv[])
             num_frames++;
             seconds += end.tv_sec - start.tv_sec;
             useconds += end.tv_usec - start.tv_usec;
-            /* fwrite(pixels, sizeof(uint16_t), 2048 * 1088, fp); */
+            fwrite(pixels, sizeof(uint16_t), 2048 * 1088, fp);
         }
     }
-    /* fclose(fp); */
+    fclose(fp);
 
     float mtime = seconds * 1000.0 + useconds / 1000.0;
     printf("Decoded %i frames in %.5fms\n", num_frames, mtime);
