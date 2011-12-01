@@ -1,0 +1,10 @@
+prefix=${CMAKE_INSTALL_PREFIX}
+exec_prefix=${BIN_INSTALL_DIR}
+libdir=${LIB_INSTALL_DIR}
+includedir=${INCLUDE_INSTALL_DIR}
+
+Name: libipe
+Description: Decoding routines for the UFO camera
+Version: ${PACKAGE_VERSION}
+Libs: -L${LIB_INSTALL_DIR} -lipe
+Cflags: -I${INCLUDE_INSTALL_DIR}
