@@ -1,9 +1,9 @@
-#ifndef LIB_IPE_PRIVATE_H
-#define LIB_IPE_PRIVATE_H
+#ifndef LIB_UFODECODE_PRIVATE_H
+#define LIB_UFODECODE_PRIVATE_H
 
 #include <stdbool.h>
 
-struct ipe_decoder_t {
+struct ufo_decoder_t {
     uint32_t height;
     uint32_t *raw;
     size_t num_bytes; 

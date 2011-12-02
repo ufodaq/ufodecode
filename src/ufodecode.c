@@ -3,10 +3,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-#include "libipe.h"
-#include "libipe-private.h"
+#include "ufodecode.h"
+#include "ufodecode-private.h"
 #include "config.h"
+
+#ifdef HAVE_SSE
 #include <xmmintrin.h>
+#endif
 
 #define IPECAMERA_NUM_CHANNELS 16
 #define IPECAMERA_PIXELS_PER_CHANNEL 128
@@ -31,20 +34,20 @@
  *
  * \param height Number of rows that are expected in the data stream
  * \param raw The data stream from the camera or NULL if set later with
- * ipe_decoder_set_raw_data.
+ * ufo_decoder_set_raw_data.
  * \param num_bytes Size of the data stream buffer in bytes
  *
  * \return A new decoder instance that can be used to iterate over the frames
- * using ipe_decoder_get_next_frame.
+ * using ufo_decoder_get_next_frame.
  */
-ipe_decoder ipe_decoder_new(uint32_t height, uint32_t *raw, size_t num_bytes)
+ufo_decoder ufo_decoder_new(uint32_t height, uint32_t *raw, size_t num_bytes)
 {
-    ipe_decoder decoder = malloc(sizeof(struct ipe_decoder_t));
+    ufo_decoder decoder = malloc(sizeof(struct ufo_decoder_t));
     if (decoder == NULL)
         return NULL;
 
     decoder->height = height;
-    ipe_decoder_set_raw_data(decoder, raw, num_bytes);
+    ufo_decoder_set_raw_data(decoder, raw, num_bytes);
     return decoder;
 }
 
@@ -52,9 +55,9 @@ ipe_decoder ipe_decoder_new(uint32_t height, uint32_t *raw, size_t num_bytes)
 /**
  * \brief Release decoder instance
  *
- * \param decoder An ipe_decoder instance
+ * \param decoder An ufo_decoder instance
  */
-void ipe_decoder_free(ipe_decoder decoder)
+void ufo_decoder_free(ufo_decoder decoder)
 {
     free(decoder);
 }
@@ -63,18 +66,18 @@ void ipe_decoder_free(ipe_decoder decoder)
 /**
  * \brief Set raw data stream
  *
- * \param decoder An ipe_decoder instance
+ * \param decoder An ufo_decoder instance
  * \param raw Raw data stream
  * \param num_bytes Size of data stream buffer in bytes
  */
-void ipe_decoder_set_raw_data(ipe_decoder decoder, uint32_t *raw, size_t num_bytes)
+void ufo_decoder_set_raw_data(ufo_decoder decoder, uint32_t *raw, size_t num_bytes)
 {
     decoder->raw = raw;
     decoder->num_bytes = num_bytes;
     decoder->current_pos = 0;
 }
 
-static int ipe_decode_frame(uint16_t *pixel_buffer, uint32_t *raw, int num_rows, int *offset)
+static int ufo_decode_frame(uint16_t *pixel_buffer, uint32_t *raw, int num_rows, int *offset)
 {
     static int channel_order[IPECAMERA_NUM_CHANNELS] = { 15, 13, 14, 12, 10, 8, 11, 7, 9, 6, 5, 2, 4, 3, 0, 1 };
 
@@ -86,8 +89,7 @@ static int ipe_decode_frame(uint16_t *pixel_buffer, uint32_t *raw, int num_rows,
     const int bytes = 43;
 
 #ifdef HAVE_SSE
-    const uint32_t mask = 0x3FF;
-    __m128i mmask = _mm_set_epi32(mask, mask, mask, mask);
+    __m128i mask = _mm_set_epi32(0x3FF, 0x3FF, 0x3FF, 0x3FF);
     __m128i packed;
     __m128i tmp1, tmp2;
     uint32_t result[4] __attribute__ ((aligned (16))) = {0};
@@ -125,7 +127,7 @@ static int ipe_decode_frame(uint16_t *pixel_buffer, uint32_t *raw, int num_rows,
             packed = _mm_set_epi32(raw[i], raw[i+1], raw[i+2], raw[i+3]);
 
             tmp1 = _mm_srli_epi32(packed, 20);
-            tmp2 = _mm_and_si128(tmp1, mmask);
+            tmp2 = _mm_and_si128(tmp1, mask);
             _mm_storeu_si128((__m128i*) result, tmp2);
             pixel_buffer[base] = result[0];
             pixel_buffer[base+3] = result[1];
@@ -133,14 +135,14 @@ static int ipe_decode_frame(uint16_t *pixel_buffer, uint32_t *raw, int num_rows,
             pixel_buffer[base+9] = result[3];
 
             tmp1 = _mm_srli_epi32(packed, 10);
-            tmp2 = _mm_and_si128(tmp1, mmask);
+            tmp2 = _mm_and_si128(tmp1, mask);
             _mm_storeu_si128((__m128i*) result, tmp2);
             pixel_buffer[base+1] = result[0];
             pixel_buffer[base+4] = result[1];
             pixel_buffer[base+7] = result[2];
             pixel_buffer[base+10] = result[3];
 
-            tmp1 = _mm_and_si128(packed, mmask);
+            tmp1 = _mm_and_si128(packed, mask);
             _mm_storeu_si128((__m128i*) result, tmp1);
             pixel_buffer[base+2] = result[0];
             pixel_buffer[base+5] = result[1];
@@ -200,7 +202,7 @@ static int ipe_decode_frame(uint16_t *pixel_buffer, uint32_t *raw, int num_rows,
  * \param width Width of frame in pixels
  * \param heigh Height of frame in pixels
  */
-void ipe_deinterlace_interpolate(const uint16_t *in, uint16_t *out, int width, int height)
+void ufo_deinterlace_interpolate(const uint16_t *in, uint16_t *out, int width, int height)
 {
     const size_t row_size_bytes = width * sizeof(uint16_t);
 
@@ -230,7 +232,7 @@ void ipe_deinterlace_interpolate(const uint16_t *in, uint16_t *out, int width, i
  * \param width Width of frame in pixels
  * \param heigh Height of frame in pixels
  */
-void ipe_deinterlace_weave(const uint16_t *in1, const uint16_t *in2, uint16_t *out, int width, int height)
+void ufo_deinterlace_weave(const uint16_t *in1, const uint16_t *in2, uint16_t *out, int width, int height)
 {
     const size_t row_size_bytes = width * sizeof(uint16_t);
     for (int row = 0; row < height; row++) {
@@ -248,7 +250,7 @@ void ipe_deinterlace_weave(const uint16_t *in1, const uint16_t *in2, uint16_t *o
  * This function tries to decode the next frame in the currently set raw data
  * stream. 
  *
- * \param decoder An ipe_decoder instance
+ * \param decoder An ufo_decoder instance
  * \param pixels If pointer with NULL content is passed, a new buffer is
  * allocated otherwise, this user-supplied buffer is used.
  * \param frame_number Frame number as reported in the header
@@ -258,7 +260,7 @@ void ipe_deinterlace_weave(const uint16_t *in1, const uint16_t *in2, uint16_t *o
  * NULL was passed but no memory could be allocated, EILSEQ if data stream is
  * corrupt and EFAULT if pixels is a NULL-pointer.
  */
-int ipe_decoder_get_next_frame(ipe_decoder decoder, uint16_t **pixels, uint32_t *frame_number, uint32_t *time_stamp)
+int ufo_decoder_get_next_frame(ufo_decoder decoder, uint16_t **pixels, uint32_t *frame_number, uint32_t *time_stamp)
 {
 
     uint32_t *raw = decoder->raw;
@@ -301,7 +303,7 @@ int ipe_decoder_get_next_frame(ipe_decoder decoder, uint16_t **pixels, uint32_t 
     pos += 8;
 #endif
 
-    err = ipe_decode_frame(*pixels, raw + pos, decoder->height, &advance);
+    err = ufo_decode_frame(*pixels, raw + pos, decoder->height, &advance);
     if (err)
         return EILSEQ;
 

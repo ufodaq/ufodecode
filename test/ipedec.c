@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <errno.h>
-#include <libipe.h>
+#include <ufodecode.h>
 
 
 int read_raw_file(const char *filename, char **buffer, size_t *length)
@@ -47,7 +47,7 @@ int main(int argc, char const* argv[])
 
     const int rows = atoi(argv[2]);
 
-    ipe_decoder decoder = ipe_decoder_new(rows, (uint32_t *) buffer, num_bytes);
+    ufo_decoder decoder = ufo_decoder_new(rows, (uint32_t *) buffer, num_bytes);
     int err = 0;
     uint16_t *pixels = (uint16_t *) malloc(2048 * rows * sizeof(uint16_t));
     uint32_t frame_number, time_stamp;
@@ -59,7 +59,7 @@ int main(int argc, char const* argv[])
 
     while (!err) {
         gettimeofday(&start, NULL);
-        err = ipe_decoder_get_next_frame(decoder, &pixels, &frame_number, &time_stamp);
+        err = ufo_decoder_get_next_frame(decoder, &pixels, &frame_number, &time_stamp);
         gettimeofday(&end, NULL);
 
         if (!err) {
@@ -75,7 +75,7 @@ int main(int argc, char const* argv[])
     printf("Decoded %i frames in %.5fms\n", num_frames, mtime);
 
     free(pixels);
-    ipe_decoder_free(decoder);
+    ufo_decoder_free(decoder);
     free(buffer);
 
     return 0;
