@@ -11,17 +11,23 @@
 #include <xmmintrin.h>
 #endif
 
-#define IPECAMERA_NUM_CHANNELS 16
-#define IPECAMERA_PIXELS_PER_CHANNEL 128
-#define IPECAMERA_WIDTH (IPECAMERA_NUM_CHANNELS * IPECAMERA_PIXELS_PER_CHANNEL)
+#define IPECAMERA_NUM_CHANNELS 16 /**< Number of channels per row */
+#define IPECAMERA_PIXELS_PER_CHANNEL 128 /**< Number of pixels per channel */
+#define IPECAMERA_WIDTH (IPECAMERA_NUM_CHANNELS * IPECAMERA_PIXELS_PER_CHANNEL) /**< Total pixel width of row */
 
 
+/**
+ * Check if value matches expected input.
+ */
 #define CHECK_VALUE(value, expected) \
     if (value != expected) { \
         fprintf(stderr, "<%s:%i> 0x%x != 0x%x\n", __FILE__, __LINE__, value, expected); \
         err = 1; \
     }
 
+/**
+ * Check that flag evaluates to non-zero.
+ */
 #define CHECK_FLAG(flag, check, ...) \
     if (!(check)) { \
         fprintf(stderr, "<%s:%i> Unexpected value 0x%x of " flag "\n", __FILE__, __LINE__,  __VA_ARGS__); \
@@ -200,7 +206,7 @@ static int ufo_decode_frame(uint16_t *pixel_buffer, uint32_t *raw, int num_rows,
  * \param in Input frame
  * \param out Destination of interpolated frame
  * \param width Width of frame in pixels
- * \param heigh Height of frame in pixels
+ * \param height Height of frame in pixels
  */
 void ufo_deinterlace_interpolate(const uint16_t *in, uint16_t *out, int width, int height)
 {
@@ -230,7 +236,7 @@ void ufo_deinterlace_interpolate(const uint16_t *in, uint16_t *out, int width, i
  * \param in2 Second frame
  * \param out Destination of weaved frame
  * \param width Width of frame in pixels
- * \param heigh Height of frame in pixels
+ * \param height Height of frame in pixels
  */
 void ufo_deinterlace_weave(const uint16_t *in1, const uint16_t *in2, uint16_t *out, int width, int height)
 {
