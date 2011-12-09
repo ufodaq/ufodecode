@@ -123,6 +123,8 @@ static int ufo_decode_frame(ufo_decoder decoder, uint16_t *pixel_buffer, uint16_
 
 	if ((row > num_rows)||(channel > cpl)||(pixels>IPECAMERA_PIXELS_PER_CHANNEL))
 	    return EILSEQ;
+	
+	if (cmask) cmask[row] |= (1<<channel);
 
         channel = channel_order[channel];
 
