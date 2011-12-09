@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -112,23 +111,18 @@ static int ufo_decode_frame(ufo_decoder decoder, uint16_t *pixel_buffer, uint16_
     uint32_t result[4] __attribute__ ((aligned (16))) = {0};
 #endif
 
-    if (cpi * channel_size > num_words) 
+    if (cpi * channel_size > num_words) {
+#ifdef DEBUG
+	fprintf(stderr, "Not enough data to decode frame, expected %lu bytes, but received %lu\n", cpi * channel_size * sizeof(uint32_t), num_words * sizeof(uint32_t));
+#endif
 	return EILSEQ;
-
+    }
+    
     for (c = 0; c < cpi; c++) {
         info = raw[0];
         row = (info >> 4) & 0x7FF;
 	channel = info & 0x0F;
         pixels = (info >> 20) & 0xFF;
-
-	if ((row > num_rows)||(channel > cpl)||(pixels>IPECAMERA_PIXELS_PER_CHANNEL))
-	    return EILSEQ;
-	
-	if (cmask) cmask[row] |= (1<<channel);
-
-        channel = channel_order[channel];
-
-        int base = row * IPECAMERA_WIDTH + channel * IPECAMERA_PIXELS_PER_CHANNEL;
 
 #ifdef DEBUG
         int err = 0;
@@ -138,6 +132,16 @@ static int ufo_decode_frame(ufo_decoder decoder, uint16_t *pixel_buffer, uint16_
         CHECK_FLAG("pixel size, only 10 bits are supported", bpp == 10, bpp);
         CHECK_FLAG("channel, limited by %i output channels", channel < IPECAMERA_NUM_CHANNELS, channel, IPECAMERA_NUM_CHANNELS);
 #endif
+
+
+	if ((row > num_rows)||(channel > cpl)||(pixels>IPECAMERA_PIXELS_PER_CHANNEL))
+	    return EILSEQ;
+	
+	if (cmask) cmask[row] |= (1<<channel);
+
+        channel = channel_order[channel];
+
+        int base = row * IPECAMERA_WIDTH + channel * IPECAMERA_PIXELS_PER_CHANNEL;
 
         /* "Correct" missing pixel */
         if ((row < 2) && (pixels == (IPECAMERA_PIXELS_PER_CHANNEL - 1))) {
@@ -340,9 +344,15 @@ int ufo_decoder_get_next_frame(ufo_decoder decoder, uint16_t **pixels, uint32_t 
 #ifdef DEBUG
     CHECK_VALUE(raw[pos++], 0x0AAAAAAA);
     CHECK_VALUE(raw[pos++], 0x0BBBBBBB);
+	// Statuses of previous! frame is following
+    pos++;   	// status1 0x840dffff is expected
+    pos++;	// status2 0x0f001001 is expected
+    pos++;	// status3 0x28000111 explains problems if status2 is wrong
+/*
     CHECK_VALUE(raw[pos++], 0x0CCCCCCC);
     CHECK_VALUE(raw[pos++], 0x0DDDDDDD);
     CHECK_VALUE(raw[pos++], 0x0EEEEEEE);
+*/
     CHECK_VALUE(raw[pos++], 0x0FFFFFFF);
     CHECK_VALUE(raw[pos++], 0x00000000);
     CHECK_VALUE(raw[pos++], 0x01111111);
