@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 #include <unistd.h>
 #include <sys/time.h>
 #include <errno.h>
@@ -42,8 +43,11 @@ int main(int argc, char const* argv[])
 
     char *buffer = NULL;
     size_t num_bytes = 0;
-    if (read_raw_file(argv[1], &buffer, &num_bytes))
+    int error = read_raw_file(argv[1], &buffer, &num_bytes);
+    if (error) {
+        printf("file reading error: %s\n", strerror(error));
         return EXIT_FAILURE;
+    }
 
     const int rows = atoi(argv[2]);
 
