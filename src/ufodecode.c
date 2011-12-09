@@ -135,34 +135,37 @@ static int ufo_decode_frame(uint16_t *pixel_buffer, uint32_t *raw, int num_rows,
             tmp1 = _mm_srli_epi32(packed, 20);
             tmp2 = _mm_and_si128(tmp1, mask);
             _mm_storeu_si128((__m128i*) result, tmp2);
-            pixel_buffer[base] = result[0];
-            pixel_buffer[base+3] = result[1];
-            pixel_buffer[base+6] = result[2];
-            pixel_buffer[base+9] = result[3];
+
+            pixel_buffer[base+0] = result[3];
+            pixel_buffer[base+3] = result[2];
+            pixel_buffer[base+6] = result[1];
+            pixel_buffer[base+9] = result[0];
 
             tmp1 = _mm_srli_epi32(packed, 10);
             tmp2 = _mm_and_si128(tmp1, mask);
             _mm_storeu_si128((__m128i*) result, tmp2);
-            pixel_buffer[base+1] = result[0];
-            pixel_buffer[base+4] = result[1];
-            pixel_buffer[base+7] = result[2];
-            pixel_buffer[base+10] = result[3];
+            pixel_buffer[base+1] = result[3];
+            pixel_buffer[base+4] = result[2];
+            pixel_buffer[base+7] = result[1];
+            pixel_buffer[base+10] = result[0];
 
             tmp1 = _mm_and_si128(packed, mask);
             _mm_storeu_si128((__m128i*) result, tmp1);
-            pixel_buffer[base+2] = result[0];
-            pixel_buffer[base+5] = result[1];
-            pixel_buffer[base+8] = result[2];
-            pixel_buffer[base+11] = result[3];
+            pixel_buffer[base+2] = result[3];
+            pixel_buffer[base+5] = result[2];
+            pixel_buffer[base+8] = result[1];
+            pixel_buffer[base+11] = result[0];
         }
         
-        /* Compute last pixels the usual way */
-        for (int i = bytes-4; i < bytes; i++) {
-            data = raw[i];
-            pixel_buffer[base++] = (data >> 20) & 0x3FF;
-            pixel_buffer[base++] = (data >> 10) & 0x3FF;
-            pixel_buffer[base++] = data & 0x3FF;
-        }
+        /* Compute last pixels by hand */
+        data = raw[41];
+        pixel_buffer[base++] = (data >> 20) & 0x3FF;
+        pixel_buffer[base++] = (data >> 10) & 0x3FF;
+        pixel_buffer[base++] = data & 0x3FF;
+        data = raw[42];
+        pixel_buffer[base++] = (data >> 20) & 0x3FF;
+        pixel_buffer[base++] = (data >> 10) & 0x3FF;
+        pixel_buffer[base++] = data & 0x3FF;
 #else
         for (int i = 1 ; i < bytes; i++) {
             data = raw[i];
@@ -298,14 +301,14 @@ int ufo_decoder_get_next_frame(ufo_decoder decoder, uint16_t **pixels, uint32_t 
     CHECK_VALUE(raw[pos++], 0x55555555);
     CHECK_VALUE(raw[pos++], 0x56666666);
     CHECK_VALUE(raw[pos] >> 28, 0x5);
-    *frame_number = raw[pos++] & 0xF0000000;
+    *frame_number = raw[pos++] & 0xFFFFFFF;
     CHECK_VALUE(raw[pos] >> 28, 0x5);
-    *time_stamp = raw[pos++] & 0xF0000000;
+    *time_stamp = raw[pos++] & 0xFFFFFFF;
     if (err)
         return EILSEQ;
 #else
-    *frame_number = raw[pos + 6] & 0xF0000000;
-    *time_stamp = raw[pos + 7] & 0xF0000000;
+    *frame_number = raw[pos + 6] & 0xFFFFFFF;
+    *time_stamp = raw[pos + 7] & 0xFFFFFFF;
     pos += 8;
 #endif
 
@@ -318,9 +321,8 @@ int ufo_decoder_get_next_frame(ufo_decoder decoder, uint16_t **pixels, uint32_t 
 #ifdef DEBUG
     CHECK_VALUE(raw[pos++], 0x0AAAAAAA);
     CHECK_VALUE(raw[pos++], 0x0BBBBBBB);
-    CHECK_VALUE(raw[pos++], 0x0CCCCCCC);
-    CHECK_VALUE(raw[pos++], 0x0DDDDDDD);
-    CHECK_VALUE(raw[pos++], 0x0EEEEEEE);
+    /* TODO: what should we check? */
+    pos += 3;
     CHECK_VALUE(raw[pos++], 0x0FFFFFFF);
     CHECK_VALUE(raw[pos++], 0x00000000);
     CHECK_VALUE(raw[pos++], 0x01111111);
