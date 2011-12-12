@@ -10,6 +10,8 @@
 #include <xmmintrin.h>
 #endif
 
+#define CHECKS
+
 #define IPECAMERA_NUM_CHANNELS 16 /**< Number of channels per row */
 #define IPECAMERA_PIXELS_PER_CHANNEL 128 /**< Number of pixels per channel */
 #define IPECAMERA_WIDTH (IPECAMERA_NUM_CHANNELS * IPECAMERA_PIXELS_PER_CHANNEL) /**< Total pixel width of row */
@@ -18,20 +20,35 @@
 /**
  * Check if value matches expected input.
  */
-#define CHECK_VALUE(value, expected) \
+#ifdef DEBUG
+# define CHECK_VALUE(value, expected) \
     if (value != expected) { \
         fprintf(stderr, "<%s:%i> 0x%x != 0x%x\n", __FILE__, __LINE__, value, expected); \
         err = 1; \
     }
+#else
+# define CHECK_VALUE(value, expected) \
+    if (value != expected) { \
+        err = 1; \
+    }
+#endif
 
 /**
  * Check that flag evaluates to non-zero.
  */
-#define CHECK_FLAG(flag, check, ...) \
+
+#ifdef DEBUG
+# define CHECK_FLAG(flag, check, ...) \
     if (!(check)) { \
         fprintf(stderr, "<%s:%i> Unexpected value 0x%x of " flag "\n", __FILE__, __LINE__,  __VA_ARGS__); \
         err = 1; \
     }
+#else
+# define CHECK_FLAG(flag, check, ...) \
+    if (!(check)) { \
+        err = 1; \
+    }
+#endif
 
 
 /**
@@ -104,7 +121,7 @@ static int ufo_decode_frame_channels(ufo_decoder decoder, uint16_t *pixel_buffer
     uint32_t data;
     const int bytes = channel_size - 1;
 
-#ifdef HAVE_SSE
+#if defined(HAVE_SSE)&&!defined(DEBUG)
     __m128i mask = _mm_set_epi32(0x3FF, 0x3FF, 0x3FF, 0x3FF);
     __m128i packed;
     __m128i tmp1, tmp2;
@@ -124,22 +141,22 @@ static int ufo_decode_frame_channels(ufo_decoder decoder, uint16_t *pixel_buffer
 	channel = info & 0x0F;
         pixels = (info >> 20) & 0xFF;
 
-#ifdef DEBUG
+#ifdef CHECKS
         int err = 0;
         int header = (info >> 30) & 0x03;   // 2 bits
         const int bpp = (info >> 16) & 0x0F;      // 4 bits
         CHECK_FLAG("raw header magick", header == 2, header);
+	CHECK_FLAG("row number, only %i rows requested", row < num_rows, row, num_rows);
         CHECK_FLAG("pixel size, only 10 bits are supported", bpp == 10, bpp);
-        CHECK_FLAG("channel, limited by %i output channels", channel < IPECAMERA_NUM_CHANNELS, channel, IPECAMERA_NUM_CHANNELS);
+        CHECK_FLAG("channel, limited by %i output channels", channel < cpl, channel, cpl);
+	CHECK_FLAG("channel (line %i), duplicate entry", (!cmask)||(cmask[row]&(1<<channel_order[channel])) == 0, channel_order[channel], row);
 #endif
-
 
 	if ((row > num_rows)||(channel > cpl)||(pixels>IPECAMERA_PIXELS_PER_CHANNEL))
 	    return EILSEQ;
 	
-	if (cmask) cmask[row] |= (1<<channel);
-
         channel = channel_order[channel];
+	if (cmask) cmask[row] |= (1<<channel);
 
         int base = row * IPECAMERA_WIDTH + channel * IPECAMERA_PIXELS_PER_CHANNEL;
 
@@ -148,12 +165,12 @@ static int ufo_decode_frame_channels(ufo_decoder decoder, uint16_t *pixel_buffer
             pixel_buffer[base] = 0;
             /* base++; */
         }
-#ifdef DEBUG
+#ifdef CHECKS
         else 
             CHECK_FLAG("number of pixels, %i is expected", pixels == IPECAMERA_PIXELS_PER_CHANNEL, pixels, IPECAMERA_PIXELS_PER_CHANNEL);
 #endif
 
-#ifdef HAVE_SSE
+#if defined(HAVE_SSE)&&!defined(DEBUG)
         for (int i = 1 ; i < bytes-4; i += 4, base += 12) {
             packed = _mm_set_epi32(raw[i], raw[i+1], raw[i+2], raw[i+3]);
 
@@ -192,7 +209,7 @@ static int ufo_decode_frame_channels(ufo_decoder decoder, uint16_t *pixel_buffer
         pixel_buffer[base++] = (data >> 20) & 0x3FF;
         pixel_buffer[base++] = (data >> 10) & 0x3FF;
         pixel_buffer[base++] = data & 0x3FF;
-#else
+#else /* HAVE_SSE */
         for (int i = 1 ; i < bytes; i++) {
             data = raw[i];
 #ifdef DEBUG
@@ -205,7 +222,7 @@ static int ufo_decode_frame_channels(ufo_decoder decoder, uint16_t *pixel_buffer
             pixel_buffer[base++] = (data >> 10) & 0x3FF;
             pixel_buffer[base++] = data & 0x3FF;
         }
-#endif
+#endif /* HAVE_SSE */
 
         data = raw[bytes];
 #ifdef DEBUG
@@ -307,7 +324,7 @@ size_t ufo_decoder_decode_frame(ufo_decoder decoder, uint32_t *raw, size_t num_b
     if ((pixels == NULL)||(num_words < 16))
         return 0;
 
-#ifdef DEBUG
+#ifdef CHECKS
     CHECK_VALUE(raw[pos++], 0x51111111);
     CHECK_VALUE(raw[pos++], 0x52222222);
     CHECK_VALUE(raw[pos++], 0x53333333);
@@ -330,7 +347,7 @@ size_t ufo_decoder_decode_frame(ufo_decoder decoder, uint32_t *raw, size_t num_b
 
     pos += advance;
 
-#ifdef DEBUG
+#ifdef CHECKS
     CHECK_VALUE(raw[pos++], 0x0AAAAAAA);
     CHECK_VALUE(raw[pos++], 0x0BBBBBBB);
 	// Statuses of previous! frame is following
