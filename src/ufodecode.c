@@ -148,7 +148,7 @@ static int ufo_decode_frame_channels(ufo_decoder decoder, uint16_t *pixel_buffer
         CHECK_FLAG("raw header magick", header == 2, header);
 	CHECK_FLAG("row number, only %i rows requested", row < num_rows, row, num_rows);
         CHECK_FLAG("pixel size, only 10 bits are supported", bpp == 10, bpp);
-        CHECK_FLAG("channel, limited by %i output channels", channel < cpl, channel, cpl);
+        CHECK_FLAG("channel, limited by %zu output channels", channel < cpl, channel, cpl);
 	CHECK_FLAG("channel (line %i), duplicate entry", (!cmask)||(cmask[row]&(1<<channel_order[channel])) == 0, channel_order[channel], row);
 #endif
 
