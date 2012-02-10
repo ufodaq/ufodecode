@@ -51,7 +51,7 @@ int main(int argc, char const* argv[])
 
     const int rows = atoi(argv[2]);
 
-    ufo_decoder decoder = ufo_decoder_new(rows, (uint32_t *) buffer, num_bytes);
+    ufo_decoder decoder = ufo_decoder_new(rows, 2048, (uint32_t *) buffer, num_bytes);
     int err = 0;
     uint16_t *pixels = (uint16_t *) malloc(2048 * rows * sizeof(uint16_t));
     uint32_t frame_number, time_stamp;
@@ -59,12 +59,20 @@ int main(int argc, char const* argv[])
     struct timeval start, end;
     long seconds = 0L, useconds = 0L;
 
+    if (!decoder) {
+	fprintf(stderr, "Failed to initialize decoder\n");
+	return EXIT_FAILURE;
+    }
 
     FILE *fp = fopen("test.raw", "wb");
+    if (!fp) {
+	fprintf(stderr, "Failed to open file for writting\n");
+	return EXIT_FAILURE;
+    }
 
     while (!err) {
         gettimeofday(&start, NULL);
-        err = ufo_decoder_get_next_frame(decoder, &pixels, &frame_number, &time_stamp);
+        err = ufo_decoder_get_next_frame(decoder, &pixels, &frame_number, &time_stamp, NULL);
         gettimeofday(&end, NULL);
 
         if (!err) {
