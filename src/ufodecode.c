@@ -315,7 +315,7 @@ size_t ufo_decoder_decode_frame(ufo_decoder decoder, uint32_t *raw,
     size_t advance;
     const size_t num_words = num_bytes / 4;
 
-    if ((pixels == NULL)||(num_words < 16))
+    if ((pixels == NULL) || (num_words < 16))
         return 0;
 
 #ifdef CHECKS
@@ -401,7 +401,10 @@ int ufo_decoder_get_next_frame(ufo_decoder decoder, uint16_t **pixels, uint32_t 
             return ENOMEM;
     }
 
-    advance = ufo_decoder_decode_frame(decoder, raw + pos * 4, decoder->num_bytes - pos * 4, *pixels, frame_number, time_stamp, cmask);
+    while (raw[pos] != 0x51111111)
+        pos++;
+
+    advance = ufo_decoder_decode_frame(decoder, raw + pos, decoder->num_bytes - pos, *pixels, frame_number, time_stamp, cmask);
     if (!advance) 
         return EILSEQ;
 
