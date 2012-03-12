@@ -36,7 +36,7 @@ int read_raw_file(const char *filename, char **buffer, size_t *length)
 
 int main(int argc, char const* argv[])
 {
-    if (argc < 3) {
+    if (argc < 2) {
         fprintf(stderr, "Usage: ipedec <filename> <number of lines per frame>\n");
         return EXIT_FAILURE;
     }
@@ -49,12 +49,12 @@ int main(int argc, char const* argv[])
         return EXIT_FAILURE;
     }
 
-    const int rows = atoi(argv[2]);
+    const int rows = argc > 2 ? atoi(argv[2]) : -1;
 
     ufo_decoder decoder = ufo_decoder_new(rows, 2048, (uint32_t *) buffer, num_bytes);
     int err = 0;
-    uint16_t *pixels = (uint16_t *) malloc(2048 * rows * sizeof(uint16_t));
-    uint32_t frame_number, time_stamp;
+    uint16_t *pixels = (uint16_t *) malloc(2048 * 1088 * sizeof(uint16_t));
+    uint32_t num_rows, frame_number, time_stamp;
     int num_frames = 0;
     struct timeval start, end;
     long seconds = 0L, useconds = 0L;
@@ -72,14 +72,15 @@ int main(int argc, char const* argv[])
 
     while (!err) {
         gettimeofday(&start, NULL);
-        err = ufo_decoder_get_next_frame(decoder, &pixels, &frame_number, &time_stamp, NULL);
+        memset(pixels, 0, 2048 * 1088 * sizeof(uint16_t));
+        err = ufo_decoder_get_next_frame(decoder, &pixels, &num_rows, &frame_number, &time_stamp, NULL);
         gettimeofday(&end, NULL);
 
         if (!err) {
             num_frames++;
             seconds += end.tv_sec - start.tv_sec;
             useconds += end.tv_usec - start.tv_usec;
-            fwrite(pixels, sizeof(uint16_t), 2048 * 1088, fp);
+            fwrite(pixels, sizeof(uint16_t), 2048 * num_rows, fp);
         }
     }
     fclose(fp);

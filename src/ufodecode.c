@@ -12,6 +12,7 @@
 
 #define CHECKS
 
+#define IPECAMERA_NUM_ROWS 1088
 #define IPECAMERA_NUM_CHANNELS 16 /**< Number of channels per row */
 #define IPECAMERA_PIXELS_PER_CHANNEL 128 /**< Number of pixels per channel */
 #define IPECAMERA_WIDTH (IPECAMERA_NUM_CHANNELS * IPECAMERA_PIXELS_PER_CHANNEL) /**< Total pixel width of row */
@@ -52,7 +53,8 @@
 /**
  * \brief Setup a new decoder instance
  *
- * \param height Number of rows that are expected in the data stream
+ * \param height Number of rows that are expected in the data stream. Set this
+ *      smaller 0 to let the decoder figure out the number of rows.
  * \param raw The data stream from the camera or NULL if set later with
  * ufo_decoder_set_raw_data.
  * \param num_bytes Size of the data stream buffer in bytes
@@ -60,7 +62,7 @@
  * \return A new decoder instance that can be used to iterate over the frames
  * using ufo_decoder_get_next_frame.
  */
-ufo_decoder ufo_decoder_new(uint32_t height, uint32_t width, uint32_t *raw, size_t num_bytes)
+ufo_decoder ufo_decoder_new(int32_t height, uint32_t width, uint32_t *raw, size_t num_bytes)
 {
     if (width % IPECAMERA_PIXELS_PER_CHANNEL)
         return NULL;
@@ -100,7 +102,7 @@ void ufo_decoder_set_raw_data(ufo_decoder decoder, uint32_t *raw, size_t num_byt
     decoder->current_pos = 0;
 }
 
-static int ufo_decode_frame_channels(ufo_decoder decoder, 
+static int ufo_decode_frame_channels_v0(ufo_decoder decoder, 
         uint16_t *pixel_buffer, uint16_t *cmask, uint32_t *raw, 
         size_t num_words, size_t *offset)
 {
@@ -165,6 +167,149 @@ static int ufo_decode_frame_channels(ufo_decoder decoder,
         else 
             CHECK_FLAG("number of pixels, %i is expected", pixels == IPECAMERA_PIXELS_PER_CHANNEL, pixels, IPECAMERA_PIXELS_PER_CHANNEL);
 #endif
+
+#if defined(HAVE_SSE) && !defined(DEBUG)
+        for (int i = 1 ; i < bytes-4; i += 4, base += 12) {
+            packed = _mm_set_epi32(raw[i], raw[i+1], raw[i+2], raw[i+3]);
+
+            tmp1 = _mm_srli_epi32(packed, 20);
+            tmp2 = _mm_and_si128(tmp1, mask);
+            _mm_storeu_si128((__m128i*) result, tmp2);
+
+            pixel_buffer[base+0] = result[3];
+            pixel_buffer[base+3] = result[2];
+            pixel_buffer[base+6] = result[1];
+            pixel_buffer[base+9] = result[0];
+
+            tmp1 = _mm_srli_epi32(packed, 10);
+            tmp2 = _mm_and_si128(tmp1, mask);
+            _mm_storeu_si128((__m128i*) result, tmp2);
+            pixel_buffer[base+1] = result[3];
+            pixel_buffer[base+4] = result[2];
+            pixel_buffer[base+7] = result[1];
+            pixel_buffer[base+10] = result[0];
+
+            tmp1 = _mm_and_si128(packed, mask);
+            _mm_storeu_si128((__m128i*) result, tmp1);
+            pixel_buffer[base+2] = result[3];
+            pixel_buffer[base+5] = result[2];
+            pixel_buffer[base+8] = result[1];
+            pixel_buffer[base+11] = result[0];
+        }
+
+        /* Compute last pixels by hand */
+        data = raw[41];
+        pixel_buffer[base++] = (data >> 20) & 0x3FF;
+        pixel_buffer[base++] = (data >> 10) & 0x3FF;
+        pixel_buffer[base++] = data & 0x3FF;
+
+        data = raw[42];
+        pixel_buffer[base++] = (data >> 20) & 0x3FF;
+        pixel_buffer[base++] = (data >> 10) & 0x3FF;
+        pixel_buffer[base++] = data & 0x3FF;
+#else
+        for (int i = 1 ; i < bytes; i++) {
+            data = raw[i];
+#ifdef DEBUG
+            header = (data >> 30) & 0x03;   
+            CHECK_FLAG("raw data magic", header == 3, header);
+            if (err) 
+                return err;
+#endif
+            pixel_buffer[base++] = (data >> 20) & 0x3FF;
+            pixel_buffer[base++] = (data >> 10) & 0x3FF;
+            pixel_buffer[base++] = data & 0x3FF;
+        }
+#endif
+
+        data = raw[bytes];
+#ifdef DEBUG
+        header = (data >> 30) & 0x03;
+        CHECK_FLAG("raw data magic", header == 3, header);
+        CHECK_FLAG("raw footer magic", (data & 0x3FF) == 0x55, (data & 0x3FF));
+        if (err) 
+            return err;
+#endif
+
+        int ppw = pixels >> 6;
+        for (int j = 0; j < ppw; j++)
+            pixel_buffer[base++] = (data >> (10 * (ppw - j))) & 0x3FF;
+
+        pos += channel_size;
+        raw += channel_size;
+    }
+
+    *offset = pos;
+    return 0;
+}
+
+static int ufo_decode_frame_channels_v4(ufo_decoder decoder, 
+        uint16_t *pixel_buffer, uint16_t *cmask, uint32_t *raw, 
+        size_t num_words, size_t num_rows, size_t *offset)
+{
+    static const int channel_order[IPECAMERA_NUM_CHANNELS] = { 15, 13, 14, 12, 10, 8, 11, 7, 9, 6, 5, 2, 4, 3, 0, 1 };
+    static const int channel_size = (2 + IPECAMERA_PIXELS_PER_CHANNEL / 3);
+
+    const int bytes = channel_size - 1;
+    const size_t channels_per_row = (decoder->width / IPECAMERA_PIXELS_PER_CHANNEL);
+    const size_t cpi = num_rows * channels_per_row;
+    int pos = 0;
+    uint32_t data;
+
+#if defined(HAVE_SSE) && !defined(DEBUG)
+    __m128i mask = _mm_set_epi32(0x3FF, 0x3FF, 0x3FF, 0x3FF);
+    __m128i packed;
+    __m128i tmp1, tmp2;
+    uint32_t result[4] __attribute__ ((aligned (16))) = {0};
+#endif
+
+    if (cpi * channel_size > num_words) {
+#ifdef DEBUG
+        fprintf(stderr, "Not enough data to decode frame, expected %lu bytes, but received %lu\n", cpi * channel_size * sizeof(uint32_t), num_words * sizeof(uint32_t));
+#endif
+        return EILSEQ;
+    }
+
+    for (size_t c = 0; c < cpi; c++) {
+        const int info = raw[0];
+        int row = (info >> 4) & 0x7FF;
+        int channel = info & 0x0F;
+        int pixels = (info >> 20) & 0xFF;
+
+#ifdef DEBUG
+        int err = 0;
+        int header = (info >> 30) & 0x03;
+        const int bpp = (info >> 16) & 0x0F;
+        CHECK_FLAG("raw header magick", header == 2, header);
+
+        /* XXX: rows are numbered absolutely so this becomes unnecessary */
+        /* CHECK_FLAG("row number, only %i rows requested", row < num_rows, row, num_rows); */
+
+        CHECK_FLAG("pixel size, only 10 bits are supported", bpp == 10, bpp);
+        CHECK_FLAG("channel, limited by %zu output channels", channel < channels_per_row, channel, channels_per_row);
+        CHECK_FLAG("channel (line %i), duplicate entry",
+                (!cmask) || (cmask[row] & (1 << channel_order[channel])) == 0,
+                channel_order[channel], row);
+#endif
+
+        if ((channel > channels_per_row) || (pixels > IPECAMERA_PIXELS_PER_CHANNEL))
+            return EILSEQ;
+
+        channel = channel_order[channel];
+        int base = row * IPECAMERA_WIDTH + channel * IPECAMERA_PIXELS_PER_CHANNEL;
+
+        if (cmask) 
+            cmask[row] |= (1 << channel);
+
+        /* "Correct" missing pixel */
+        if ((row < 2) && (pixels == (IPECAMERA_PIXELS_PER_CHANNEL - 1))) {
+            pixel_buffer[base] = 0;
+            /* base++; */
+        }
+/* #ifdef DEBUG */
+/*         else */ 
+/*             CHECK_FLAG("number of pixels, %i is expected", pixels == IPECAMERA_PIXELS_PER_CHANNEL, pixels, IPECAMERA_PIXELS_PER_CHANNEL); */
+/* #endif */
 
 #if defined(HAVE_SSE) && !defined(DEBUG)
         for (int i = 1 ; i < bytes-4; i += 4, base += 12) {
@@ -306,38 +451,90 @@ void ufo_deinterlace_weave(const uint16_t *in1, const uint16_t *in2, uint16_t *o
  * \return number of decoded bytes or 0 in case of error
  */
 size_t ufo_decoder_decode_frame(ufo_decoder decoder, uint32_t *raw, 
-        size_t num_bytes, uint16_t *pixels, uint32_t *frame_number, 
-        uint32_t *time_stamp, uint16_t *cmask)
+        size_t num_bytes, uint16_t *pixels, 
+        uint32_t *num_rows, uint32_t *frame_number, uint32_t *time_stamp, 
+        uint16_t *cmask)
 {
 
     int err = 0;
     size_t pos = 0;
-    size_t advance;
+    size_t advance = 0;
     const size_t num_words = num_bytes / 4;
 
     if ((pixels == NULL) || (num_words < 16))
         return 0;
 
-#ifdef CHECKS
+    size_t rows_per_frame = decoder->height;
+    const int version = (raw[pos+6] >> 24) & 0xF;
+
+#ifdef DEBUG
+    int starting_row = 0;
+    int num_skipped_rows = 0;
+
     CHECK_VALUE(raw[pos++], 0x51111111);
     CHECK_VALUE(raw[pos++], 0x52222222);
     CHECK_VALUE(raw[pos++], 0x53333333);
     CHECK_VALUE(raw[pos++], 0x54444444);
     CHECK_VALUE(raw[pos++], 0x55555555);
-    CHECK_VALUE(raw[pos++], 0x56666666);
-    CHECK_VALUE(raw[pos] >> 28, 0x5);
-    *frame_number = raw[pos++] & 0xFFFFFFF;
-    CHECK_VALUE(raw[pos] >> 28, 0x5);
-    *time_stamp = raw[pos++] & 0xFFFFFFF;
+
+    switch (version) {
+        case 0:
+            CHECK_VALUE(raw[pos++], 0x56666666);
+            CHECK_VALUE(raw[pos] >> 28, 0x5);
+            *frame_number = raw[pos++] & 0xFFFFFFF;
+            CHECK_VALUE(raw[pos] >> 28, 0x5);
+            *time_stamp = raw[pos++] & 0xFFFFFFF;
+            break;
+
+        case 4:
+            CHECK_VALUE(raw[pos] >> 28, 0x5);
+            starting_row = (raw[pos] >> 18) & 0x3FF;
+            num_skipped_rows = (raw[pos] >> 11) & 0x7F;
+            rows_per_frame = raw[pos] & 0x7FF;
+            pos++;
+            *frame_number = raw[pos++] & 0x1FFFFFF;
+            CHECK_VALUE(raw[pos] >> 24, 0x50);
+            *time_stamp = raw[pos++] & 0xFFFFFF;
+            break;
+
+        default:
+            fprintf(stderr, "Unsupported data format detected\n");
+            return 0;
+    }
+
     if (err) 
         return 0;
 #else
-    *frame_number = raw[pos + 6] & 0xFFFFFFF;
-    *time_stamp = raw[pos + 7] & 0xFFFFFFF;
+    switch (version) {
+        case 0:
+            *frame_number = raw[pos + 6] & 0xFFFFFFF;
+            *time_stamp = raw[pos + 7] & 0xFFFFFFF;
+            break;
+        case 4:
+            *frame_number = raw[pos + 6] & 0x1FFFFFF;
+            *time_stamp = raw[pos + 7] & 0xFFFFFF;
+            break;
+        default:
+            fprintf(stderr, "Unsupported data format detected\n");
+            return 0;
+    }
+
     pos += 8;
 #endif
 
-    err = ufo_decode_frame_channels(decoder, pixels, cmask, raw + pos, num_words - pos - 8, &advance);
+    *num_rows = rows_per_frame;
+
+    switch (version) {
+        case 0:
+            err = ufo_decode_frame_channels_v0(decoder, pixels, cmask, raw + pos, num_words - pos - 8, &advance);
+            break;
+        case 4:
+            err = ufo_decode_frame_channels_v4(decoder, pixels, cmask, raw + pos, num_words - pos - 8, rows_per_frame, &advance);
+            break;
+        default:
+            break;
+    }
+
     if (err) 
         return 0;
 
@@ -371,6 +568,7 @@ size_t ufo_decoder_decode_frame(ufo_decoder decoder, uint32_t *raw,
  * \param decoder An ufo_decoder instance
  * \param pixels If pointer with NULL content is passed, a new buffer is
  * allocated otherwise, this user-supplied buffer is used.
+ * \param num_rows Number of actual decoded rows
  * \param frame_number Frame number as reported in the header
  * \param time_stamp Time stamp of the frame as reported in the header
  * \paran cmask Change-mask
@@ -379,7 +577,9 @@ size_t ufo_decoder_decode_frame(ufo_decoder decoder, uint32_t *raw,
  * NULL was passed but no memory could be allocated, EILSEQ if data stream is
  * corrupt and EFAULT if pixels is a NULL-pointer.
  */
-int ufo_decoder_get_next_frame(ufo_decoder decoder, uint16_t **pixels, uint32_t *frame_number, uint32_t *time_stamp, uint16_t *cmask)
+int ufo_decoder_get_next_frame(ufo_decoder decoder, uint16_t **pixels, 
+        uint32_t *num_rows, uint32_t *frame_number, uint32_t *time_stamp, 
+        uint16_t *cmask)
 {
     uint32_t *raw = decoder->raw;
     size_t pos = decoder->current_pos;
@@ -404,7 +604,9 @@ int ufo_decoder_get_next_frame(ufo_decoder decoder, uint16_t **pixels, uint32_t 
     while (raw[pos] != 0x51111111)
         pos++;
 
-    advance = ufo_decoder_decode_frame(decoder, raw + pos, decoder->num_bytes - pos, *pixels, frame_number, time_stamp, cmask);
+    advance = ufo_decoder_decode_frame(decoder, raw + pos, decoder->num_bytes -
+            pos, *pixels, num_rows, frame_number, time_stamp, cmask);
+
     if (!advance) 
         return EILSEQ;
 
