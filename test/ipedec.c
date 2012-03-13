@@ -8,6 +8,8 @@
 #include <ufodecode.h>
 
 
+static const int CLEAR_FRAME = 1;
+
 int read_raw_file(const char *filename, char **buffer, size_t *length)
 {
     FILE *fp = fopen(filename, "rb"); 
@@ -72,7 +74,8 @@ int main(int argc, char const* argv[])
 
     while (!err) {
         gettimeofday(&start, NULL);
-        memset(pixels, 0, 2048 * 1088 * sizeof(uint16_t));
+        if (CLEAR_FRAME)
+            memset(pixels, 0, 2048 * 1088 * sizeof(uint16_t));
         err = ufo_decoder_get_next_frame(decoder, &pixels, &num_rows, &frame_number, &time_stamp, NULL);
         gettimeofday(&end, NULL);
 
@@ -80,7 +83,7 @@ int main(int argc, char const* argv[])
             num_frames++;
             seconds += end.tv_sec - start.tv_sec;
             useconds += end.tv_usec - start.tv_usec;
-            fwrite(pixels, sizeof(uint16_t), 2048 * num_rows, fp);
+            fwrite(pixels, sizeof(uint16_t), 2048 * 1088, fp);
         }
     }
     fclose(fp);
