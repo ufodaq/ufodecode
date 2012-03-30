@@ -596,11 +596,13 @@ size_t ufo_decoder_decode_frame(ufo_decoder decoder, uint32_t *raw,
 
 #ifdef CHECKS
     CHECK_VALUE(raw[pos++], 0x0AAAAAAA);
-    CHECK_VALUE(raw[pos++], 0x0BBBBBBB);
+    /* CHECK_VALUE(raw[pos++], 0x0BBBBBBB); */
+    pos++;
     pos++; /* 0x840dffff expected */
     pos++; /* 0x0f001001 expected */
     pos++; /* 0x28000111 explains problems if status2 is wrong */
-    CHECK_VALUE(raw[pos++], 0x0FFFFFFF);
+    pos++;
+    /* CHECK_VALUE(raw[pos++], 0x0FFFFFFF); */
     CHECK_VALUE(raw[pos++], 0x00000000);
     CHECK_VALUE(raw[pos++], 0x01111111);
 
