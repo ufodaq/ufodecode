@@ -402,6 +402,19 @@ static int ufo_decode_frame_channels_v5(ufo_decoder decoder,
     for (int row = 0; row < num_rows; row++) {
         for (int pix = 0; pix < 128; pix++) {
             payload_header_v5 *header = (payload_header_v5 *) &raw[base];
+
+            if (header->row_number > num_rows) {
+                fprintf(stderr, "Error: row_number in header is %i instead of %i\n", 
+                        header->row_number, row); 
+                abort();
+            }
+
+            if (header->pixel_number > 128) {
+                fprintf(stderr, "Error: pixel_number in header is %i instead of %i\n", 
+                        header->pixel_number, pix); 
+                abort();
+            }
+
             index = header->row_number * IPECAMERA_WIDTH + header->pixel_number;
             base += 3;
 
