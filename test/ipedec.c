@@ -36,7 +36,11 @@ static int read_raw_file(const char *filename, char **buffer, size_t *length)
 
 static void usage(void)
 {
-    printf("usage: ipedec [--num-rows=ROWS] [--clear-frame] FILE [FILE ...]\n");
+    printf("usage: ipedec [--num-rows=ROWS] [--clear-frame] FILE [FILE ...]\n\
+Options:\n\
+  -h, --help         Show this help message and exit\n\
+  -r, --num-rows=N   N rows that are contained in the file\n\
+  -c, --clear-frame  Clear the frame for each iteration\n");
 }
 
 static void process_file(const char *filename, int rows, int clear_frame)
