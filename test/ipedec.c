@@ -34,6 +34,11 @@ static int read_raw_file(const char *filename, char **buffer, size_t *length)
     return 0;
 }
 
+static void usage(void)
+{
+    printf("usage: ipedec [--num-rows=ROWS] [--clear-frame] FILE [FILE ...]\n");
+}
+
 static void process_file(const char *filename, int rows, int clear_frame)
 {
     char *buffer = NULL;
@@ -100,14 +105,19 @@ int main(int argc, char const* argv[])
     static struct option long_options[] = {
         { "num-rows", required_argument, 0, 'r' },
         { "clear-frame", no_argument, 0, 'c' },
-        { "help", no_argument, 0, '?' },
+        { "help", no_argument, 0, 'h' },
         { 0, 0, 0, 0 }
     };
 
     int clear_frame = 0;
     int rows = -1;
 
-    while ((getopt_ret = getopt_long(argc, (char *const *) argv, "r:c:?", long_options, &index)) != -1) {
+    if (argc == 1) {
+        printf("ipedec: no input files\n");
+        return 0;
+    }
+
+    while ((getopt_ret = getopt_long(argc, (char *const *) argv, "r:c:h", long_options, &index)) != -1) {
         switch (getopt_ret) {
             case 'r': 
                 rows = atoi(optarg);
@@ -115,6 +125,9 @@ int main(int argc, char const* argv[])
             case 'c':
                 clear_frame = 1;
                 break;
+            case 'h':
+                usage();
+                return 0;
             default:
                 break;
         } 
