@@ -3,14 +3,13 @@
 #include <stdint.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/time.h>
 #include <errno.h>
+#include <sys/time.h>
+#include <getopt.h>
 #include <ufodecode.h>
 
 
-static const int CLEAR_FRAME = 1;
-
-int read_raw_file(const char *filename, char **buffer, size_t *length)
+static int read_raw_file(const char *filename, char **buffer, size_t *length)
 {
     FILE *fp = fopen(filename, "rb"); 
     if (fp == NULL)
@@ -35,47 +34,44 @@ int read_raw_file(const char *filename, char **buffer, size_t *length)
     return 0;
 }
 
-
-int main(int argc, char const* argv[])
+static void process_file(const char *filename, int rows, int clear_frame)
 {
-    if (argc < 2) {
-        fprintf(stderr, "Usage: ipedec <filename> <number of lines per frame>\n");
-        return EXIT_FAILURE;
-    }
-
     char *buffer = NULL;
     size_t num_bytes = 0;
-    int error = read_raw_file(argv[1], &buffer, &num_bytes);
-    if (error) {
-        printf("file reading error: %s\n", strerror(error));
-        return EXIT_FAILURE;
-    }
-
-    const int rows = argc > 2 ? atoi(argv[2]) : -1;
-
-    ufo_decoder decoder = ufo_decoder_new(rows, 2048, (uint32_t *) buffer, num_bytes);
     int err = 0;
     uint16_t *pixels = (uint16_t *) malloc(2048 * 1088 * sizeof(uint16_t));
     uint32_t num_rows, frame_number, time_stamp;
     int num_frames = 0;
     struct timeval start, end;
     long seconds = 0L, useconds = 0L;
+    int error = read_raw_file(filename, &buffer, &num_bytes);
 
-    if (!decoder) {
-	fprintf(stderr, "Failed to initialize decoder\n");
-	return EXIT_FAILURE;
+    if (error) {
+        fprintf(stderr, "Error processing %s: %s\n", filename, strerror(error));
+        return;
     }
 
-    FILE *fp = fopen("test.raw", "wb");
+    ufo_decoder decoder = ufo_decoder_new(rows, 2048, (uint32_t *) buffer, num_bytes);
+
+    if (!decoder) {
+        fprintf(stderr, "Failed to initialize decoder\n");
+        return;
+    }
+
+    char output_name[256];
+    snprintf(output_name, 256, "%s.raw", filename);
+    FILE *fp = fopen(output_name, "wb");
+
     if (!fp) {
-	fprintf(stderr, "Failed to open file for writting\n");
-	return EXIT_FAILURE;
+        fprintf(stderr, "Failed to open file for writing\n");
+        return;
     }
 
     while (!err) {
-        gettimeofday(&start, NULL);
-        if (CLEAR_FRAME)
+        if (clear_frame)
             memset(pixels, 0, 2048 * 1088 * sizeof(uint16_t));
+
+        gettimeofday(&start, NULL);
         err = ufo_decoder_get_next_frame(decoder, &pixels, &num_rows, &frame_number, &time_stamp, NULL);
         gettimeofday(&end, NULL);
 
@@ -86,6 +82,7 @@ int main(int argc, char const* argv[])
             fwrite(pixels, sizeof(uint16_t), 2048 * 1088, fp);
         }
     }
+
     fclose(fp);
 
     float mtime = seconds * 1000.0 + useconds / 1000.0;
@@ -94,6 +91,37 @@ int main(int argc, char const* argv[])
     free(pixels);
     ufo_decoder_free(decoder);
     free(buffer);
+}
+
+int main(int argc, char const* argv[])
+{
+    int getopt_ret, index;
+
+    static struct option long_options[] = {
+        { "num-rows", required_argument, 0, 'r' },
+        { "clear-frame", no_argument, 0, 'c' },
+        { "help", no_argument, 0, '?' },
+        { 0, 0, 0, 0 }
+    };
+
+    int clear_frame = 0;
+    int rows = -1;
+
+    while ((getopt_ret = getopt_long(argc, (char *const *) argv, "r:c:?", long_options, &index)) != -1) {
+        switch (getopt_ret) {
+            case 'r': 
+                rows = atoi(optarg);
+                break;
+            case 'c':
+                clear_frame = 1;
+                break;
+            default:
+                break;
+        } 
+    }
+
+    while (optind < argc)
+        process_file(argv[optind++], rows, clear_frame);
 
     return 0;
 }
