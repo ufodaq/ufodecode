@@ -20,6 +20,7 @@ static int read_raw_file(const char *filename, char **buffer, size_t *length)
     rewind(fp);
 
     *buffer = (char *) malloc(*length);
+
     if (*buffer == NULL) {
         fclose(fp);
         return ENOMEM;
@@ -28,7 +29,7 @@ static int read_raw_file(const char *filename, char **buffer, size_t *length)
     size_t buffer_length = fread(*buffer, 1, *length, fp);
     fclose(fp);
     if (buffer_length != *length) {
-        free(buffer);
+        free(*buffer);
         return ERANGE;
     }
     return 0;
