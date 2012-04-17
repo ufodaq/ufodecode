@@ -116,7 +116,7 @@ int main(int argc, char const* argv[])
     };
 
     int clear_frame = 0;
-    int rows = -1;
+    int rows = 1088;
 
     if (argc == 1) {
         printf("ipedec: no input files\n");
