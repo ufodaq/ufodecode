@@ -406,13 +406,15 @@ static int ufo_decode_frame_channels_v5(ufo_decoder decoder,
             if (header->row_number > num_rows) {
                 fprintf(stderr, "Error: row_number in header is %i instead of %i\n", 
                         header->row_number, row); 
-                abort();
+                return 1;
+                /* abort(); */
             }
 
             if (header->pixel_number > 128) {
                 fprintf(stderr, "Error: pixel_number in header is %i instead of %i\n", 
                         header->pixel_number, pix); 
-                abort();
+                return 1;
+                /* abort(); */
             }
 
             index = header->row_number * IPECAMERA_WIDTH + header->pixel_number;
@@ -556,10 +558,6 @@ size_t ufo_decoder_decode_frame(ufo_decoder decoder, uint32_t *raw,
             *time_stamp = raw[pos++] & 0xFFFFFF;
             break;
 
-        /* case 5: */
-        /*     printf("Alright!\n"); */
-        /*     return 0; */
-
         default:
             fprintf(stderr, "Unsupported data format detected\n");
             return 0;
@@ -602,7 +600,7 @@ size_t ufo_decoder_decode_frame(ufo_decoder decoder, uint32_t *raw,
             break;
     }
 
-    if (err) 
+    if (err)
         return 0;
 
     pos += advance;
@@ -642,7 +640,7 @@ size_t ufo_decoder_decode_frame(ufo_decoder decoder, uint32_t *raw,
  * \param time_stamp Time stamp of the frame as reported in the header
  * \paran cmask Change-mask
  *
- * \return 0 in case of no error, ENOSR if end of stream was reached, ENOMEM if
+ * \return 0 in case of no error, EIO if end of stream was reached, ENOMEM if
  * NULL was passed but no memory could be allocated, EILSEQ if data stream is
  * corrupt and EFAULT if pixels is a NULL-pointer.
  */
@@ -659,7 +657,7 @@ int ufo_decoder_get_next_frame(ufo_decoder decoder, uint16_t **pixels,
         return 0;
 
     if (pos >= num_words)
-        return ENOSR; 
+        return EIO; 
 
     if (num_words < 16)
         return EILSEQ;
@@ -670,16 +668,17 @@ int ufo_decoder_get_next_frame(ufo_decoder decoder, uint16_t **pixels,
             return ENOMEM;
     }
 
-    while (raw[pos] != 0x51111111)
+    while ((pos < num_words) && (raw[pos] != 0x51111111))
         pos++;
 
     advance = ufo_decoder_decode_frame(decoder, raw + pos, decoder->num_bytes -
             pos, *pixels, num_rows, frame_number, time_stamp, cmask);
 
-    if (!advance) 
-        return EILSEQ;
-
-    pos += advance;
+    /*
+     * On error, advance is 0 but we have to advance at least a bit to net get
+     * caught in an infinite loop when trying to decode subsequent frames.
+     */
+    pos += advance == 0 ? 1 : advance;
 
     /* if bytes left and we see fill bytes, skip them */
     if (((pos + 2) < num_words) && ((raw[pos] == 0x0) && (raw[pos+1] == 0x1111111))) {
@@ -689,6 +688,10 @@ int ufo_decoder_get_next_frame(ufo_decoder decoder, uint16_t **pixels,
     }
 
     decoder->current_pos = pos;
+
+    if (!advance)
+        return EILSEQ;
+
     return 0;
 }
 

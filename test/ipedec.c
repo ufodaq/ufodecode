@@ -56,7 +56,7 @@ static void process_file(const char *filename, int rows, int clear_frame)
     int error = read_raw_file(filename, &buffer, &num_bytes);
 
     if (error) {
-        fprintf(stderr, "Error processing %s: %s\n", filename, strerror(error));
+        fprintf(stderr, "Error reading %s: %s\n", filename, strerror(error));
         return;
     }
 
@@ -76,7 +76,7 @@ static void process_file(const char *filename, int rows, int clear_frame)
         return;
     }
 
-    while (!err) {
+    while (err != EIO) {
         if (clear_frame)
             memset(pixels, 0, 2048 * 1088 * sizeof(uint16_t));
 
@@ -90,6 +90,8 @@ static void process_file(const char *filename, int rows, int clear_frame)
             useconds += end.tv_usec - start.tv_usec;
             fwrite(pixels, sizeof(uint16_t), 2048 * 1088, fp);
         }
+        else if (err != EIO)
+            fprintf(stderr, "Failed to decode frame %i\n", num_frames); 
     }
 
     fclose(fp);
