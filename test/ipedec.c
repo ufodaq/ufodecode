@@ -124,7 +124,7 @@ int main(int argc, char const* argv[])
         return 0;
     }
 
-    while ((getopt_ret = getopt_long(argc, (char *const *) argv, "r:c:h", long_options, &index)) != -1) {
+    while ((getopt_ret = getopt_long(argc, (char *const *) argv, "r:ch", long_options, &index)) != -1) {
         switch (getopt_ret) {
             case 'r': 
                 rows = atoi(optarg);
