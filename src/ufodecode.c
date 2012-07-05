@@ -526,9 +526,6 @@ size_t ufo_decoder_decode_frame(ufo_decoder decoder, uint32_t *raw,
     const int version = (raw[pos+6] >> 24) & 0xF;
 
 #ifdef DEBUG
-    int starting_row = 0;
-    int num_skipped_rows = 0;
-
     CHECK_VALUE(raw[pos++], 0x51111111);
     CHECK_VALUE(raw[pos++], 0x52222222);
     CHECK_VALUE(raw[pos++], 0x53333333);
@@ -547,8 +544,6 @@ size_t ufo_decoder_decode_frame(ufo_decoder decoder, uint32_t *raw,
         case 4:
         case 5:
             CHECK_VALUE(raw[pos] >> 28, 0x5);
-            starting_row = (raw[pos] >> 18) & 0x3FF;
-            num_skipped_rows = (raw[pos] >> 11) & 0x7F;
             rows_per_frame = raw[pos] & 0x7FF;
             pos++;
             *frame_number = raw[pos++] & 0x1FFFFFF;
