@@ -81,6 +81,7 @@ ufo_decoder ufo_decoder_new(int32_t height, uint32_t width, uint32_t *raw, size_
 
     decoder->width = width;
     decoder->height = height;
+    decoder->old_time_stamp = 0;
     ufo_decoder_set_raw_data(decoder, raw, num_bytes);
     return decoder;
 }
@@ -513,7 +514,6 @@ size_t ufo_decoder_decode_frame(ufo_decoder decoder, uint32_t *raw,
         uint32_t *num_rows, uint32_t *frame_number, uint32_t *time_stamp, 
         uint16_t *cmask)
 {
-
     int err = 0;
     size_t pos = 0;
     size_t advance = 0;

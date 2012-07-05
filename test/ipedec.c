@@ -40,17 +40,18 @@ static void usage(void)
     printf("usage: ipedec [--num-rows=ROWS] [--clear-frame] FILE [FILE ...]\n\
 Options:\n\
   -h, --help         Show this help message and exit\n\
+  -v, --verbose      Print additional information on STDOUT\n\
   -r, --num-rows=N   N rows that are contained in the file\n\
   -c, --clear-frame  Clear the frame for each iteration\n");
 }
 
-static void process_file(const char *filename, int rows, int clear_frame)
+static void process_file(const char *filename, int rows, int clear_frame, int verbose)
 {
     char *buffer = NULL;
     size_t num_bytes = 0;
     int err = 0;
     uint16_t *pixels = (uint16_t *) malloc(2048 * 1088 * sizeof(uint16_t));
-    uint32_t num_rows, frame_number, time_stamp;
+    uint32_t num_rows, frame_number, time_stamp, old_time_stamp = 0;
     int num_frames = 0;
     struct timeval start, end;
     long seconds = 0L, useconds = 0L;
@@ -85,6 +86,15 @@ static void process_file(const char *filename, int rows, int clear_frame)
         err = ufo_decoder_get_next_frame(decoder, &pixels, &num_rows, &frame_number, &time_stamp, NULL);
         gettimeofday(&end, NULL);
 
+        if (verbose) {
+            int time_stamp_diff = 80 * (time_stamp - old_time_stamp);
+
+            if (time_stamp_diff != 0)
+                printf(" %d\t %d\n", 1000000000 / time_stamp_diff, num_rows);
+
+            old_time_stamp = time_stamp;
+        }
+
         if (!err) {
             num_frames++;
             seconds += end.tv_sec - start.tv_sec;
@@ -112,11 +122,13 @@ int main(int argc, char const* argv[])
     static struct option long_options[] = {
         { "num-rows", required_argument, 0, 'r' },
         { "clear-frame", no_argument, 0, 'c' },
+        { "verbose", no_argument, 0, 'v' },
         { "help", no_argument, 0, 'h' },
         { 0, 0, 0, 0 }
     };
 
     int clear_frame = 0;
+    int verbose = 0;
     int rows = 1088;
 
     if (argc == 1) {
@@ -124,13 +136,16 @@ int main(int argc, char const* argv[])
         return 0;
     }
 
-    while ((getopt_ret = getopt_long(argc, (char *const *) argv, "r:ch", long_options, &index)) != -1) {
+    while ((getopt_ret = getopt_long(argc, (char *const *) argv, "r:cvh", long_options, &index)) != -1) {
         switch (getopt_ret) {
             case 'r': 
                 rows = atoi(optarg);
                 break;
             case 'c':
                 clear_frame = 1;
+                break;
+            case 'v':
+                verbose = 1;
                 break;
             case 'h':
                 usage();
@@ -141,7 +156,7 @@ int main(int argc, char const* argv[])
     }
 
     while (optind < argc)
-        process_file(argv[optind++], rows, clear_frame);
+        process_file(argv[optind++], rows, clear_frame, verbose);
 
     return 0;
 }
