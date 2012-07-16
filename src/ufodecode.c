@@ -12,9 +12,9 @@
 
 #define CHECKS
 
-#define IPECAMERA_NUM_ROWS 1088
-#define IPECAMERA_NUM_CHANNELS 16 /**< Number of channels per row */
-#define IPECAMERA_PIXELS_PER_CHANNEL 128 /**< Number of pixels per channel */
+#define IPECAMERA_NUM_ROWS              1088
+#define IPECAMERA_NUM_CHANNELS          16      /**< Number of channels per row */
+#define IPECAMERA_PIXELS_PER_CHANNEL    128     /**< Number of pixels per channel */
 #define IPECAMERA_WIDTH (IPECAMERA_NUM_CHANNELS * IPECAMERA_PIXELS_PER_CHANNEL) /**< Total pixel width of row */
 
 typedef struct {
@@ -69,7 +69,8 @@ typedef struct {
  * \return A new decoder instance that can be used to iterate over the frames
  * using ufo_decoder_get_next_frame.
  */
-ufo_decoder ufo_decoder_new(int32_t height, uint32_t width, uint32_t *raw, size_t num_bytes)
+ufo_decoder
+ufo_decoder_new (int32_t height, uint32_t width, uint32_t *raw, size_t num_bytes)
 {
     if (width % IPECAMERA_PIXELS_PER_CHANNEL)
         return NULL;
@@ -91,7 +92,8 @@ ufo_decoder ufo_decoder_new(int32_t height, uint32_t width, uint32_t *raw, size_
  *
  * \param decoder An ufo_decoder instance
  */
-void ufo_decoder_free(ufo_decoder decoder)
+void
+ufo_decoder_free(ufo_decoder decoder)
 {
     free(decoder);
 }
@@ -103,16 +105,21 @@ void ufo_decoder_free(ufo_decoder decoder)
  * \param raw Raw data stream
  * \param num_bytes Size of data stream buffer in bytes
  */
-void ufo_decoder_set_raw_data(ufo_decoder decoder, uint32_t *raw, size_t num_bytes)
+void
+ufo_decoder_set_raw_data(ufo_decoder decoder, uint32_t *raw, size_t num_bytes)
 {
     decoder->raw = raw;
     decoder->num_bytes = num_bytes;
     decoder->current_pos = 0;
 }
 
-static int ufo_decode_frame_channels_v0(ufo_decoder decoder, 
-        uint16_t *pixel_buffer, uint16_t *cmask, uint32_t *raw, 
-        size_t num_words, size_t *offset)
+static int
+ufo_decode_frame_channels_v0(ufo_decoder     decoder, 
+                             uint16_t       *pixel_buffer, 
+                             uint16_t       *cmask, 
+                             uint32_t       *raw, 
+                             size_t          num_words, 
+                             size_t         *offset)
 {
     static int channel_order[IPECAMERA_NUM_CHANNELS] = { 15, 13, 14, 12, 10, 8, 11, 7, 9, 6, 5, 2, 4, 3, 0, 1 };
     static int channel_size = (2 + IPECAMERA_PIXELS_PER_CHANNEL / 3);
@@ -251,9 +258,14 @@ static int ufo_decode_frame_channels_v0(ufo_decoder decoder,
     return 0;
 }
 
-static int ufo_decode_frame_channels_v4(ufo_decoder decoder, 
-        uint16_t *pixel_buffer, uint16_t *cmask, uint32_t *raw, 
-        size_t num_words, size_t num_rows, size_t *offset)
+static int
+ufo_decode_frame_channels_v4(ufo_decoder     decoder,
+                             uint16_t       *pixel_buffer, 
+                             uint16_t       *cmask, 
+                             uint32_t       *raw, 
+                             size_t          num_words, 
+                             size_t          num_rows, 
+                             size_t         *offset)
 {
     static const int channel_order[IPECAMERA_NUM_CHANNELS] = { 15, 13, 14, 12, 10, 8, 11, 7, 9, 6, 5, 2, 4, 3, 0, 1 };
     static const int channel_size = (2 + IPECAMERA_PIXELS_PER_CHANNEL / 3);
@@ -394,9 +406,14 @@ static int ufo_decode_frame_channels_v4(ufo_decoder decoder,
     return 0;
 }
 
-static int ufo_decode_frame_channels_v5(ufo_decoder decoder, 
-        uint16_t *pixel_buffer, uint16_t *cmask, uint32_t *raw, 
-        size_t num_words, size_t num_rows, size_t *offset)
+static int
+ufo_decode_frame_channels_v5(ufo_decoder     decoder, 
+                             uint16_t       *pixel_buffer, 
+                             uint16_t       *cmask, 
+                             uint32_t       *raw, 
+                             size_t          num_words, 
+                             size_t          num_rows, 
+                             size_t         *offset)
 {
     size_t base = 0, index = 0;
 
@@ -418,8 +435,11 @@ static int ufo_decode_frame_channels_v5(ufo_decoder decoder,
 
             index = header->row_number * IPECAMERA_WIDTH + header->pixel_number;
 
+            /* TODO: this branch should be removed from the inner loop */
             if (header->pixel_size == 10) {
+                /* Skip header + two zero-filled words */
                 base += 3;
+
                 pixel_buffer[index + 15*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base] >> 22);
                 pixel_buffer[index + 13*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base] >> 12);
                 pixel_buffer[index + 14*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base] >> 2);
@@ -438,7 +458,9 @@ static int ufo_decode_frame_channels_v5(ufo_decoder decoder,
                 pixel_buffer[index +  1*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & raw[base+4];
             }
             else if (header->pixel_size == 12) {
+                /* Skip header + one zero-filled word */
                 base += 2;
+
                 pixel_buffer[index + 15*IPECAMERA_PIXELS_PER_CHANNEL] = 0xfff & (raw[base] >> 20);
                 pixel_buffer[index + 13*IPECAMERA_PIXELS_PER_CHANNEL] = 0xfff & (raw[base] >> 8);
                 pixel_buffer[index + 14*IPECAMERA_PIXELS_PER_CHANNEL] = (0xff & raw[base]) << 4 | (raw[base+1] >> 28);
@@ -455,7 +477,6 @@ static int ufo_decode_frame_channels_v5(ufo_decoder decoder,
                 pixel_buffer[index +  3*IPECAMERA_PIXELS_PER_CHANNEL] = ((0xf & raw[base+4]) << 8) | (raw[base+5] >> 24);
                 pixel_buffer[index +  0*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+5] >> 12);
                 pixel_buffer[index +  1*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & raw[base+5];
-                /* printf ("0x%x -> 0x%x\n", raw[base], 0xfff & (raw[base] >> 20)); */
              
                 base += 1;
             }
@@ -464,6 +485,7 @@ static int ufo_decode_frame_channels_v5(ufo_decoder decoder,
                 return 1;
             }
 
+            /* Skip footer */
             base += 5;
         }
 
@@ -538,10 +560,14 @@ void ufo_deinterlace_weave(const uint16_t *in1, const uint16_t *in2, uint16_t *o
  *
  * \return number of decoded bytes or 0 in case of error
  */
-size_t ufo_decoder_decode_frame(ufo_decoder decoder, uint32_t *raw, 
-        size_t num_bytes, uint16_t *pixels, 
-        uint32_t *num_rows, uint32_t *frame_number, uint32_t *time_stamp, 
-        uint16_t *cmask)
+size_t ufo_decoder_decode_frame(ufo_decoder  decoder,
+                                uint32_t    *raw, 
+                                size_t       num_bytes, 
+                                uint16_t    *pixels, 
+                                uint32_t    *num_rows, 
+                                uint32_t    *frame_number,
+                                uint32_t    *time_stamp, 
+                                uint16_t    *cmask)
 {
     int err = 0;
     size_t pos = 0;
@@ -629,13 +655,11 @@ size_t ufo_decoder_decode_frame(ufo_decoder decoder, uint32_t *raw,
 
 #ifdef CHECKS
     CHECK_VALUE(raw[pos++], 0x0AAAAAAA);
-    /* CHECK_VALUE(raw[pos++], 0x0BBBBBBB); */
     pos++;
     pos++; /* 0x840dffff expected */
     pos++; /* 0x0f001001 expected */
     pos++; /* 0x28000111 explains problems if status2 is wrong */
     pos++;
-    /* CHECK_VALUE(raw[pos++], 0x0FFFFFFF); */
     CHECK_VALUE(raw[pos++], 0x00000000);
     CHECK_VALUE(raw[pos++], 0x01111111);
 
@@ -666,9 +690,12 @@ size_t ufo_decoder_decode_frame(ufo_decoder decoder, uint32_t *raw,
  * NULL was passed but no memory could be allocated, EILSEQ if data stream is
  * corrupt and EFAULT if pixels is a NULL-pointer.
  */
-int ufo_decoder_get_next_frame(ufo_decoder decoder, uint16_t **pixels, 
-        uint32_t *num_rows, uint32_t *frame_number, uint32_t *time_stamp, 
-        uint16_t *cmask)
+int ufo_decoder_get_next_frame(ufo_decoder    decoder, 
+                               uint16_t     **pixels, 
+                               uint32_t      *num_rows, 
+                               uint32_t      *frame_number, 
+                               uint32_t      *time_stamp, 
+                               uint16_t      *cmask)
 {
     uint32_t *raw = decoder->raw;
     size_t pos = decoder->current_pos;
