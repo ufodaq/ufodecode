@@ -6,37 +6,37 @@
 typedef struct _UfoDecoder UfoDecoder;
 
 typedef struct {
-    unsigned    dummy1:2;
-    unsigned    fsm_master_readout:4;
-    unsigned    dummy2:4;
-    unsigned    fsm_daq:4;
-    unsigned    pixel_full:1;
-    unsigned    control_lock:1;
     unsigned    data_lock:16;
+    unsigned    control_lock:1;
+    unsigned    pixel_full:1;
+    unsigned    fsm_daq:4;
+    unsigned    dummy2:4;
+    unsigned    fsm_master_readout:4;
+    unsigned    dummy1:2;
 } UfoDecoderStatus1;
 
 typedef struct {
-    unsigned    end_of_frames:1;
-    unsigned    busy_or:1;
-    unsigned    busy_ddr:1;
-    unsigned    busy_interl:1;
-    unsigned    error_status:4;   /* What the heck? */
-    unsigned    data_fifo_read_count:10;
-    unsigned    data_fifo_full:1;
-    unsigned    data_fifo_empty:1;
-    unsigned    dummy:2;
-    unsigned    ddr_fifo_write_count:8;
-    unsigned    ddr_fifo_full:1;
     unsigned    ddr_fifo_empty:1;
+    unsigned    ddr_fifo_full:1;
+    unsigned    ddr_fifo_write_count:8;
+    unsigned    dummy:2;
+    unsigned    data_fifo_empty:1;
+    unsigned    data_fifo_full:1;
+    unsigned    data_fifo_read_count:10;
+    unsigned    error_status:4;   /* What the heck? */
+    unsigned    busy_interl:1;
+    unsigned    busy_ddr:1;
+    unsigned    busy_or:1;
+    unsigned    end_of_frames:1;
 } UfoDecoderStatus2;
 
 typedef struct {
-    unsigned    dummy:2;
-    unsigned    row_counter:10;
-    unsigned    pixel_counter:8;
-    unsigned    ddr_read:4;
-    unsigned    ddr_write:4;
     unsigned    ddr_arbiter:4;
+    unsigned    ddr_write:4;
+    unsigned    ddr_read:4;
+    unsigned    pixel_counter:7;
+    unsigned    row_counter:11;
+    unsigned    dummy:2;
 } UfoDecoderStatus3;
 
 typedef struct {

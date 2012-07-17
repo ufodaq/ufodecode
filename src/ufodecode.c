@@ -638,6 +638,7 @@ size_t ufo_decoder_decode_frame(UfoDecoder      *decoder,
     CHECK_VALUE(raw[pos++], 0x0AAAAAAA);
 
     meta->status1.bits = raw[pos++];
+    printf("%x\n", raw[pos]);
     meta->status2.bits = raw[pos++];
     meta->status3.bits = raw[pos++];
     pos++;
