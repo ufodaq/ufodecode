@@ -8,8 +8,8 @@
 #include <getopt.h>
 #include <ufodecode.h>
 
-
-static int read_raw_file(const char *filename, char **buffer, size_t *length)
+static int
+read_raw_file(const char *filename, char **buffer, size_t *length)
 {
     FILE *fp = fopen(filename, "rb"); 
     if (fp == NULL)
@@ -35,7 +35,8 @@ static int read_raw_file(const char *filename, char **buffer, size_t *length)
     return 0;
 }
 
-static void usage(void)
+static void
+usage(void)
 {
     printf("usage: ipedec [--num-rows=ROWS] [--clear-frame] FILE [FILE ...]\n\
 Options:\n\
@@ -45,74 +46,150 @@ Options:\n\
   -c, --clear-frame  Clear the frame for each iteration\n");
 }
 
-static void process_file(const char *filename, int rows, int clear_frame, int verbose)
+static void
+print_meta_data (UfoDecoderMeta *meta)
 {
-    char *buffer = NULL;
-    size_t num_bytes = 0;
-    int err = 0;
-    uint16_t *pixels = (uint16_t *) malloc(2048 * 1088 * sizeof(uint16_t));
-    uint32_t num_rows, frame_number, time_stamp, old_time_stamp = 0;
-    int num_frames = 0;
-    struct timeval start, end;
-    long seconds = 0L, useconds = 0L;
-    int error = read_raw_file(filename, &buffer, &num_bytes);
+    printf("  frame_number    = %i\n", meta->frame_number);
+    printf("  time_stamp      = %i\n", meta->time_stamp);
+    printf("  n_rows          = %i\n", meta->n_rows);
+    printf("  n_skipped_rows  = %i\n", meta->n_skipped_rows);
+
+    printf("  status1\n");
+    printf("    fsm_master_readout = %i\n", meta->status1.desc.fsm_master_readout);
+    printf("    fsm_daq         = %i\n", meta->status1.desc.fsm_daq);
+    printf("    pixel_full      = %i\n", meta->status1.desc.pixel_full);
+    printf("    control_lock    = %i\n", meta->status1.desc.control_lock);
+    printf("    data_lock       = %i\n", meta->status1.desc.data_lock);
+
+    printf("  status2\n");
+    printf("    end_of_frames   = %i\n", meta->status2.desc.end_of_frames);
+    printf("    busy_or         = %i\n", meta->status2.desc.busy_or);
+    printf("    busy_ddr        = %i\n", meta->status2.desc.busy_ddr);
+    printf("    busy_interl     = %i\n", meta->status2.desc.busy_interl);
+    printf("    error_status    = %i\n", meta->status2.desc.error_status);
+    printf("    data_fifo_read_count = %i\n", meta->status2.desc.data_fifo_read_count);
+    printf("    data_fifo_full       = %i\n", meta->status2.desc.data_fifo_full);
+    printf("    data_fifo_empty      = %i\n", meta->status2.desc.data_fifo_empty);
+    printf("    ddr_fifo_write_count = %i\n", meta->status2.desc.ddr_fifo_write_count);
+    printf("    ddr_fifo_full        = %i\n", meta->status2.desc.ddr_fifo_full);
+    printf("    ddr_fifo_empty       = %i\n", meta->status2.desc.ddr_fifo_empty);
+
+    printf("  status3\n");
+    printf("    row_counter     = %i\n", meta->status3.desc.row_counter);
+    printf("    pixel_counter   = %i\n", meta->status3.desc.pixel_counter);
+    printf("    ddr_read        = %i\n", meta->status3.desc.ddr_read);
+    printf("    ddr_write       = %i\n", meta->status3.desc.ddr_write);
+    printf("    ddr_arbiter     = %i\n", meta->status3.desc.ddr_arbiter);
+    printf("\n");
+}
+
+typedef struct {
+    struct timeval  start;
+    long            seconds;
+    long            useconds;
+} Timer;
+
+static Timer *
+timer_new (void)
+{
+    Timer *t = (Timer *) malloc (sizeof (Timer));
+    t->seconds = t->useconds = 0L;
+    return t;
+}
+
+static void
+timer_destroy (Timer *t)
+{
+    free (t);
+}
+
+static void
+timer_start (Timer *t)
+{
+    gettimeofday(&t->start, NULL);
+}
+
+static void
+timer_stop (Timer *t)
+{
+    struct timeval end;
+
+    gettimeofday(&end, NULL);
+    t->seconds += end.tv_sec - t->start.tv_sec;
+    t->useconds += end.tv_usec - t->start.tv_usec;
+}
+
+static void
+process_file(const char *filename, int rows, int clear_frame, int verbose)
+{
+    UfoDecoder      *decoder;
+    UfoDecoderMeta   meta = {0};
+    Timer           *timer;
+    char            *buffer;
+    size_t           num_bytes;
+    int              error;
+    uint16_t        *pixels;
+    uint32_t         time_stamp, old_time_stamp;
+    int              n_frames = 0;
+    FILE            *fp;
+    char             output_name[256];
+    
+    error = read_raw_file(filename, &buffer, &num_bytes);
 
     if (error) {
         fprintf(stderr, "Error reading %s: %s\n", filename, strerror(error));
         return;
     }
 
-    ufo_decoder decoder = ufo_decoder_new(rows, 2048, (uint32_t *) buffer, num_bytes);
+    decoder = ufo_decoder_new(rows, 2048, (uint32_t *) buffer, num_bytes);
 
-    if (!decoder) {
+    if (decoder == NULL) {
         fprintf(stderr, "Failed to initialize decoder\n");
         return;
     }
 
-    char output_name[256];
     snprintf(output_name, 256, "%s.raw", filename);
-    FILE *fp = fopen(output_name, "wb");
+    fp = fopen(output_name, "wb");
 
     if (!fp) {
         fprintf(stderr, "Failed to open file for writing\n");
         return;
     }
 
-    while (err != EIO) {
+    timer = timer_new ();
+    pixels = (uint16_t *) malloc(2048 * 1088 * sizeof(uint16_t));
+    n_frames = 0;
+
+    while (error != EIO) {
         if (clear_frame)
             memset(pixels, 0, 2048 * 1088 * sizeof(uint16_t));
 
-        gettimeofday(&start, NULL);
-        err = ufo_decoder_get_next_frame(decoder, &pixels, &num_rows, &frame_number, &time_stamp, NULL);
-        gettimeofday(&end, NULL);
+        timer_start (timer);
+        error = ufo_decoder_get_next_frame(decoder, &pixels, &meta);
+        timer_stop (timer);
 
-        if (verbose) {
-            int time_stamp_diff = 80 * (time_stamp - old_time_stamp);
+        if (!error) {
+            if (verbose) {
+                printf("Status for frame %i\n", n_frames);
+                print_meta_data (&meta);
+            }
 
-            if (time_stamp_diff != 0)
-                printf(" %d\t %d\n", 1000000000 / time_stamp_diff, num_rows);
-
-            old_time_stamp = time_stamp;
-        }
-
-        if (!err) {
-            num_frames++;
-            seconds += end.tv_sec - start.tv_sec;
-            useconds += end.tv_usec - start.tv_usec;
+            n_frames++;
             fwrite(pixels, sizeof(uint16_t), 2048 * 1088, fp);
         }
-        else if (err != EIO)
-            fprintf(stderr, "Failed to decode frame %i\n", num_frames); 
+        else if (error != EIO)
+            fprintf(stderr, "Failed to decode frame %i\n", n_frames); 
     }
 
     fclose(fp);
 
-    float mtime = seconds * 1000.0 + useconds / 1000.0;
-    printf("Decoded %i frames in %.5fms\n", num_frames, mtime);
+    float mtime = timer->seconds * 1000.0 + timer->useconds / 1000.0;
+    printf("Decoded %i frames in %.5fms\n", n_frames, mtime);
 
     free(pixels);
-    ufo_decoder_free(decoder);
     free(buffer);
+    timer_destroy (timer);
+    ufo_decoder_free(decoder);
 }
 
 int main(int argc, char const* argv[])

@@ -1,0 +1,26 @@
+Changes in ufodecode 0.2.0
+==========================
+
+Name change
+-----------
+
+In accordance to the rest of the software, the type names changed from
+`ufo_decoder_t` to `UfoDecoder`. Moreover there is no typedef for pointers to
+`UfoDecoder` structures.
+
+
+API breakage
+------------
+
+To simplify debugging, all status data is passed from the decoded frame to the
+caller of `ufo_decoder_decode_frame()` and `ufo_decoder_get_next_frame()` by
+means of the new `UfoDecoderMeta` structure as defined in `ufodecode.h`.
+
+
+Minor changes
+-------------
+
+- The decoder supports version 4 and 5 of the UFO camera frame format.
+- `ipedec` now has a proper command line interface.
+- `ipedec` prints the frame meta data when using the verbose command line switch
+  (`-v` or `--verbose`).
