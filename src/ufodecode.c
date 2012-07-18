@@ -311,10 +311,6 @@ ufo_decode_frame_channels_v4(UfoDecoder     *decoder,
             pixel_buffer[base] = 0;
             /* base++; */
         }
-/* #ifdef DEBUG */
-/*         else */ 
-/*             CHECK_FLAG("number of pixels, %i is expected", pixels == IPECAMERA_PIXELS_PER_CHANNEL, pixels, IPECAMERA_PIXELS_PER_CHANNEL); */
-/* #endif */
 
 #if defined(HAVE_SSE) && !defined(DEBUG)
         for (int i = 1 ; i < bytes-4; i += 4, base += 12) {
@@ -399,82 +395,62 @@ ufo_decode_frame_channels_v5(UfoDecoder     *decoder,
                              size_t          num_rows, 
                              size_t         *offset)
 {
+    payload_header_v5 *header;
     size_t base = 0, index = 0;
+    int off = 0;
 
-    for (int row = 0; row < num_rows; row++) {
-        for (int pix = 0; pix < 128; pix++) {
-            payload_header_v5 *header = (payload_header_v5 *) &raw[base];
+    header = (payload_header_v5 *) &raw[base];
 
-            if (header->row_number > num_rows) {
-                fprintf(stderr, "Error: row_number in header is %i instead of %i\n", 
-                        header->row_number, row); 
-                return 1;
-            }
-
-            if (header->pixel_number > 128) {
-                fprintf(stderr, "Error: pixel_number in header is %i instead of %i\n", 
-                        header->pixel_number, pix); 
-                return 1;
-            }
-
+    if (header->pixel_size == 12) {
+        while (raw[base] != 0xAAAAAAA) {
+            header = (payload_header_v5 *) &raw[base];
             index = header->row_number * IPECAMERA_WIDTH + header->pixel_number;
 
-            /* TODO: this branch should be removed from the inner loop */
-            if (header->pixel_size == 10) {
-                /* Skip header + two zero-filled words */
-                base += 3;
+            /* Skip header + one zero-filled words */
+            base += 2;
 
-                pixel_buffer[index + 15*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base] >> 22);
-                pixel_buffer[index + 13*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base] >> 12);
-                pixel_buffer[index + 14*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base] >> 2);
-                pixel_buffer[index + 12*IPECAMERA_PIXELS_PER_CHANNEL] = ((0x3 & raw[base]) << 8) | (0x3ff & (raw[base+1] >> 24));
-                pixel_buffer[index + 10*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+1] >> 14);
-                pixel_buffer[index +  8*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+1] >> 4);
-                pixel_buffer[index + 11*IPECAMERA_PIXELS_PER_CHANNEL] = ((0xf & raw[base+1]) << 6) | (0x3ff & (raw[base+2] >> 26));
-                pixel_buffer[index +  7*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+2] >> 16);
-                pixel_buffer[index +  9*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+2] >> 6);
-                pixel_buffer[index +  6*IPECAMERA_PIXELS_PER_CHANNEL] = ((0x3f & raw[base+2]) << 4) | (0x3ff & (raw[base+3] >> 28));
-                pixel_buffer[index +  5*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+3] >> 18);
-                pixel_buffer[index +  2*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+3] >> 8);
-                pixel_buffer[index +  4*IPECAMERA_PIXELS_PER_CHANNEL] = ((0xff & raw[base+3]) << 2) | (0x3ff & (raw[base+4] >> 30));
-                pixel_buffer[index +  3*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+4] >> 20);
-                pixel_buffer[index +  0*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+4] >> 10);
-                pixel_buffer[index +  1*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & raw[base+4];
-            }
-            else if (header->pixel_size == 12) {
-                /* Skip header + one zero-filled word */
-                base += 2;
-
-                pixel_buffer[index + 15*IPECAMERA_PIXELS_PER_CHANNEL] = 0xfff & (raw[base] >> 20);
-                pixel_buffer[index + 13*IPECAMERA_PIXELS_PER_CHANNEL] = 0xfff & (raw[base] >> 8);
-                pixel_buffer[index + 14*IPECAMERA_PIXELS_PER_CHANNEL] = (0xff & raw[base]) << 4 | (raw[base+1] >> 28);
-                pixel_buffer[index + 12*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+1] >> 16);
-                pixel_buffer[index + 10*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+1] >> 4);
-                pixel_buffer[index +  8*IPECAMERA_PIXELS_PER_CHANNEL] = ((0xf & raw[base+1]) << 8) | (raw[base+2] >> 24);
-                pixel_buffer[index + 11*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+2] >> 12);
-                pixel_buffer[index +  7*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & raw[base+2];
-                pixel_buffer[index +  9*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+3] >> 20);
-                pixel_buffer[index +  6*IPECAMERA_PIXELS_PER_CHANNEL] = 0xfff & (raw[base+3] >> 8);
-                pixel_buffer[index +  5*IPECAMERA_PIXELS_PER_CHANNEL] = (0xff & raw[base+3]) << 4 | (raw[base+4] >> 28);
-                pixel_buffer[index +  2*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+4] >> 16);
-                pixel_buffer[index +  4*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+4] >> 4);
-                pixel_buffer[index +  3*IPECAMERA_PIXELS_PER_CHANNEL] = ((0xf & raw[base+4]) << 8) | (raw[base+5] >> 24);
-                pixel_buffer[index +  0*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+5] >> 12);
-                pixel_buffer[index +  1*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & raw[base+5];
-             
-                base += 1;
+            if ((header->magic != 0xe0) && (header->magic != 0xc0)) {
+                pixel_buffer[index +  (0+off)*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+5] >> 12);
+                pixel_buffer[index +  (4+off)*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+4] >> 4);
+                pixel_buffer[index +  (8+off)*IPECAMERA_PIXELS_PER_CHANNEL] = ((0xf & raw[base+1]) << 8) | (raw[base+2] >> 24);
+                pixel_buffer[index + (12+off)*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+1] >> 16);
             }
             else {
-                fprintf(stderr, "Error: unsupported pixel size %i\n", header->pixel_size); 
-                return 1;
+                off++; 
+
+                if (header->magic == 0xc0)
+                    off = 0;
             }
 
-            /* Skip footer */
+            base += 6;
+        }
+    }
+    else if (header->pixel_size) {
+        while (raw[base] != 0xAAAAAAA) {
+            header = (payload_header_v5 *) &raw[base];
+            index = header->row_number * IPECAMERA_WIDTH + header->pixel_number;
+
+            /* Skip header + two zero-filled words */
+            base += 3;
+
+            pixel_buffer[index + 15*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base] >> 22);
+            pixel_buffer[index + 13*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base] >> 12);
+            pixel_buffer[index + 14*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base] >> 2);
+            pixel_buffer[index + 12*IPECAMERA_PIXELS_PER_CHANNEL] = ((0x3 & raw[base]) << 8) | (0x3ff & (raw[base+1] >> 24));
+            pixel_buffer[index + 10*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+1] >> 14);
+            pixel_buffer[index +  8*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+1] >> 4);
+            pixel_buffer[index + 11*IPECAMERA_PIXELS_PER_CHANNEL] = ((0xf & raw[base+1]) << 6) | (0x3ff & (raw[base+2] >> 26));
+            pixel_buffer[index +  7*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+2] >> 16);
+            pixel_buffer[index +  9*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+2] >> 6);
+            pixel_buffer[index +  6*IPECAMERA_PIXELS_PER_CHANNEL] = ((0x3f & raw[base+2]) << 4) | (0x3ff & (raw[base+3] >> 28));
+            pixel_buffer[index +  5*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+3] >> 18);
+            pixel_buffer[index +  2*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+3] >> 8);
+            pixel_buffer[index +  4*IPECAMERA_PIXELS_PER_CHANNEL] = ((0xff & raw[base+3]) << 2) | (0x3ff & (raw[base+4] >> 30));
+            pixel_buffer[index +  3*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+4] >> 20);
+            pixel_buffer[index +  0*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+4] >> 10);
+            pixel_buffer[index +  1*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & raw[base+4];
             base += 5;
         }
-
-        if (row != 0)
-            base += 8;
     }
 
     *offset = base;
@@ -638,7 +614,6 @@ size_t ufo_decoder_decode_frame(UfoDecoder      *decoder,
     CHECK_VALUE(raw[pos++], 0x0AAAAAAA);
 
     meta->status1.bits = raw[pos++];
-    printf("%x\n", raw[pos]);
     meta->status2.bits = raw[pos++];
     meta->status3.bits = raw[pos++];
     pos++;
