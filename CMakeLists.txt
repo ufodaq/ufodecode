@@ -8,8 +8,12 @@ set(LIBUFODECODE_ABI_MAJOR_VERSION "0")
 set(PACKAGE_VERSION "0.2.0")
 set(PACKAGE_NAME "${TARNAME}")
 set(PACKAGE_TARNAME "${TARNAME}")
-set(PACKAGE_STRING "${PACKAGE_NAME} ${PACKAGE_VERSION}")
+set(PACKAGE_STRING "${PACKAGE_NAME}-${PACKAGE_VERSION}")
 set(PACKAGE_BUGREPORT "http://ufo.kit.edu/ufo/newticket")
+
+set(CPACK_SOURCE_GENERATOR "TGZ")
+set(CPACK_SOURCE_IGNORE_FILES ".git" "tags" ".bzr" ".swp")
+set(CPACK_SOURCE_PACKAGE_FILE_NAME ${PACKAGE_STRING} CACHE INTERNAL "tarball basename")
 
 if(NOT DEFINED BIN_INSTALL_DIR)
     set(BIN_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/bin")
@@ -36,3 +40,4 @@ add_subdirectory(src)
 add_subdirectory(doc)
 add_subdirectory(test)
 
+include(CPack)

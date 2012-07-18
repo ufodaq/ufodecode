@@ -1,0 +1,45 @@
+Simple install procedure
+========================
+
+  $ tar xfz libufodecode-0.x.y.tar.xfz
+  $ cd libufodecode-0.x.y
+  $ mkdir build
+  $ cd build/
+  $ cmake ..
+  $ make
+
+  [ Become root if necessary ]
+  $ make install
+
+
+Requirements
+============
+
+libuca requires CMake and a standard C Compiler. Information about CMake can be
+found at:
+
+    http://www.cmake.org
+
+
+Building the Library
+====================
+
+On Linux, libufodecode uses the CMake build system. The normal procedure to
+build this library is to create an empty build directory:
+
+    $ mkdir build/ && cd build
+
+configure the project using CMake:
+
+    $ cmake ../
+
+and compiling the library with make:
+
+    $ make
+    $ make install
+
+Options to the build process can be passed to the system when configuring:
+
+    $ cmake ../ -DCMAKE_INSTALL_PREFIX=/usr
+
+or via configuration tools like `ccmake`.

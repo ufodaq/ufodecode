@@ -52,5 +52,6 @@ install(FILES
 if ("${CMAKE_BUILD_TYPE}" MATCHES "Debug")
     set(DEBUG "1")
 endif()
+
 configure_file(config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
 
