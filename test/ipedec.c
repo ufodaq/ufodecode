@@ -208,11 +208,6 @@ int main(int argc, char const* argv[])
     int verbose = 0;
     int rows = 1088;
 
-    if (argc == 1) {
-        printf("ipedec: no input files\n");
-        return 0;
-    }
-
     while ((getopt_ret = getopt_long(argc, (char *const *) argv, "r:cvh", long_options, &index)) != -1) {
         switch (getopt_ret) {
             case 'r': 
@@ -230,6 +225,11 @@ int main(int argc, char const* argv[])
             default:
                 break;
         } 
+    }
+
+    if (optind == argc) {
+        printf("ipedec: no input files\n");
+        return 1;
     }
 
     while (optind < argc)
