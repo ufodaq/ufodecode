@@ -410,10 +410,10 @@ ufo_decode_frame_channels_v5(UfoDecoder     *decoder,
             base += 2;
 
             if ((header->magic != 0xe0) && (header->magic != 0xc0)) {
-                pixel_buffer[index +  (0+off)*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+5] >> 12);
-                pixel_buffer[index +  (4+off)*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+4] >> 4);
+                pixel_buffer[index +  (0+off)*IPECAMERA_PIXELS_PER_CHANNEL] = 0xfff & (raw[base+5] >> 12);
+                pixel_buffer[index +  (4+off)*IPECAMERA_PIXELS_PER_CHANNEL] = 0xfff & (raw[base+4] >> 4);
                 pixel_buffer[index +  (8+off)*IPECAMERA_PIXELS_PER_CHANNEL] = ((0xf & raw[base+1]) << 8) | (raw[base+2] >> 24);
-                pixel_buffer[index + (12+off)*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+1] >> 16);
+                pixel_buffer[index + (12+off)*IPECAMERA_PIXELS_PER_CHANNEL] = 0xfff & (raw[base+1] >> 16);
             }
             else {
                 off++; 
@@ -425,7 +425,7 @@ ufo_decode_frame_channels_v5(UfoDecoder     *decoder,
             base += 6;
         }
     }
-    else if (header->pixel_size) {
+    else if (header->pixel_size == 10) {
         while (raw[base] != 0xAAAAAAA) {
             header = (payload_header_v5 *) &raw[base];
             index = header->row_number * IPECAMERA_WIDTH + header->pixel_number;
