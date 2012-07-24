@@ -561,8 +561,10 @@ size_t ufo_decoder_decode_frame(UfoDecoder      *decoder,
             pos++;
 
             meta->frame_number = raw[pos++] & 0x1FFFFFF;
-            CHECK_VALUE(raw[pos] >> 24, 0x50);
+            CHECK_VALUE(raw[pos] >> 28, 0x5);
             meta->time_stamp = raw[pos++] & 0xFFFFFF;
+            meta->output_mode = (raw[pos] >> 24) & 0x3;
+            meta->adc_resolution = (raw[pos] >> 26) & 0x3
             break;
 
         default:
