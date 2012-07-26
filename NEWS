@@ -1,13 +1,22 @@
+Changes in ufodecode 0.2.2
+==========================
+
+This is a bugfix release:
+
+- Fix 10 bit decoding that shows wrong output when ADCs are almost saturated
+- Fix 12 bit decoding that capped some output channels at 10 bits
+- `ipedec` returns error code different from 0 when an error occurred
+- `ipedec` reports the frame rate again with the `--frame-rate` switch set
+
+
 Changes in ufodecode 0.2.1
 ==========================
 
-This is a bugfix release.
+This is a bugfix release:
 
-Minor changes
--------------
 - Fix 12 bit decoding according to CMOSIS specs
 - Fix command line input of `ipedec`
-- Trunace so-Version to major.minor
+- Truncate so-Version to major.minor
 
 
 Changes in ufodecode 0.2.0
