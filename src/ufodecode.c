@@ -159,6 +159,7 @@ ufo_decode_frame_channels_v0(UfoDecoder     *decoder,
 #ifdef CHECKS
         int header = (info >> 30) & 0x03;
         const int bpp = (info >> 16) & 0x0F;
+        int err;
         CHECK_FLAG("raw header magick", header == 2, header);
         CHECK_FLAG("row number, only %i rows requested", row < num_rows, row, num_rows);
         CHECK_FLAG("pixel size, only 10 bits are supported", bpp == 10, bpp);
