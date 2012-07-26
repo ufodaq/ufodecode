@@ -157,7 +157,6 @@ ufo_decode_frame_channels_v0(UfoDecoder     *decoder,
         int pixels = (info >> 20) & 0xFF;
 
 #ifdef CHECKS
-        int err = 0;
         int header = (info >> 30) & 0x03;
         const int bpp = (info >> 16) & 0x0F;
         CHECK_FLAG("raw header magick", header == 2, header);
