@@ -299,10 +299,6 @@ ufo_decode_frame_channels_v4(UfoDecoder     *decoder,
         int header = (info >> 30) & 0x03;
         const int bpp = (info >> 16) & 0x0F;
         CHECK_FLAG("raw header magick", header == 2, header);
-
-        /* XXX: rows are numbered absolutely so this becomes unnecessary */
-        /* CHECK_FLAG("row number, only %i rows requested", row < num_rows, row, num_rows); */
-
         CHECK_FLAG("pixel size, only 10 bits are supported", bpp == 10, bpp);
         CHECK_FLAG("channel, limited by %zu output channels", channel < channels_per_row, channel, channels_per_row);
 #endif
@@ -581,7 +577,7 @@ size_t ufo_decoder_decode_frame(UfoDecoder      *decoder,
 
             if ((meta->output_mode != IPECAMERA_MODE_4_CHAN_IO) && (meta->output_mode != IPECAMERA_MODE_16_CHAN_IO)) {
 #ifdef DEBUG
-                fprintf(stderr, "Output mode 0x%lx is not supported\n", meta->output_mode);
+                fprintf(stderr, "Output mode 0x%x is not supported\n", meta->output_mode);
 #endif
                 return EILSEQ;
             }

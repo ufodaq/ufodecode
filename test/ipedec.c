@@ -187,22 +187,25 @@ process_file(const char *filename, Options *opts)
         timer_stop (timer);
 
         if (!error) {
+            n_frames++;
+
             if (opts->verbose) {
                 printf("Status for frame %i\n", n_frames);
                 print_meta_data (&meta);
             }
 
-            if (opts->print_frame_rate && old_time_stamp != 0) {
+            if (opts->print_frame_rate) {
                 uint32_t diff = 80 * (meta.time_stamp - old_time_stamp);
 
-                printf("%d", 1000000000 / diff);
+                printf("%-6d", 1000000000 / diff);
                 old_time_stamp = meta.time_stamp;
             }
 
+            if (opts->print_num_rows)
+                printf("%d", meta.n_rows); 
+
             if (opts->print_frame_rate || opts->print_num_rows)
                 printf("\n");
-
-            n_frames++;
 
             if (!opts->dry_run)
                 fwrite(pixels, sizeof(uint16_t), 2048 * 1088, fp);
