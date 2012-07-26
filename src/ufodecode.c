@@ -440,18 +440,18 @@ ufo_decode_frame_channels_v5(UfoDecoder     *decoder,
             if (header->magic != 0xc0) {
                 pixel_buffer[index + 15*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base] >> 20);
                 pixel_buffer[index + 13*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base] >> 8);
-                pixel_buffer[index + 14*IPECAMERA_PIXELS_PER_CHANNEL] = (0xff & raw[base]) << 4 | (raw[base+1] >> 28);
+                pixel_buffer[index + 14*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (((0xff & raw[base]) << 4) | (raw[base+1] >> 28));
                 pixel_buffer[index + 12*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+1] >> 16);
                 pixel_buffer[index + 10*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+1] >> 4);
-                pixel_buffer[index +  8*IPECAMERA_PIXELS_PER_CHANNEL] = ((0xf & raw[base+1]) << 8) | (raw[base+2] >> 24);
+                pixel_buffer[index +  8*IPECAMERA_PIXELS_PER_CHANNEL] = ((0x3 & raw[base+1]) << 8) | (raw[base+2] >> 24);
                 pixel_buffer[index + 11*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+2] >> 12);
                 pixel_buffer[index +  7*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & raw[base+2];
                 pixel_buffer[index +  9*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+3] >> 20);
                 pixel_buffer[index +  6*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+3] >> 8);
-                pixel_buffer[index +  5*IPECAMERA_PIXELS_PER_CHANNEL] = (0xff & raw[base+3]) << 4 | (raw[base+4] >> 28);
+                pixel_buffer[index +  5*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (((0xff & raw[base+3]) << 4) | (raw[base+4] >> 28));
                 pixel_buffer[index +  2*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+4] >> 16);
                 pixel_buffer[index +  4*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+4] >> 4);
-                pixel_buffer[index +  3*IPECAMERA_PIXELS_PER_CHANNEL] = ((0xf & raw[base+4]) << 8) | (raw[base+5] >> 24);
+                pixel_buffer[index +  3*IPECAMERA_PIXELS_PER_CHANNEL] = ((0x3 & raw[base+4]) << 8) | (raw[base+5] >> 24);
                 pixel_buffer[index +  0*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+5] >> 12);
                 pixel_buffer[index +  1*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & raw[base+5];
             }
