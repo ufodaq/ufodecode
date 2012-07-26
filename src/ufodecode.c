@@ -398,18 +398,18 @@ static int
 ufo_decode_frame_channels_v5(UfoDecoder     *decoder,
                              uint16_t       *pixel_buffer,
                              uint32_t       *raw,
-                             size_t          num_words,
                              size_t          num_rows,
                              size_t         *offset,
                              uint8_t         output_mode)
 {
     payload_header_v5 *header;
     size_t base = 0, index = 0;
-    int off = 0;
 
     header = (payload_header_v5 *) &raw[base];
 
     if (output_mode == IPECAMERA_MODE_4_CHAN_IO) {
+        size_t off = 0;
+
         while (raw[base] != 0xAAAAAAA) {
             header = (payload_header_v5 *) &raw[base];
             index = header->row_number * IPECAMERA_WIDTH + header->pixel_number;
@@ -433,33 +433,12 @@ ufo_decode_frame_channels_v5(UfoDecoder     *decoder,
             base += 6;
         }
     }
-    else { /*if (output_mode == IPECAMERA_MODE_16_CHAN_IO)*/
+    else {
         while (raw[base] != 0xAAAAAAA) {
             header = (payload_header_v5 *) &raw[base];
             index = header->row_number * IPECAMERA_WIDTH + header->pixel_number;
 
             /* Skip header + two zero-filled words */
-            /*
-                        base += 3;
-                        pixel_buffer[index + 15*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base] >> 22);
-                        pixel_buffer[index + 13*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base] >> 12);
-                        pixel_buffer[index + 14*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base] >> 2);
-                        pixel_buffer[index + 12*IPECAMERA_PIXELS_PER_CHANNEL] = ((0x3 & raw[base]) << 8) | (0x3ff & (raw[base+1] >> 24));
-                        pixel_buffer[index + 10*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+1] >> 14);
-                        pixel_buffer[index +  8*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+1] >> 4);
-                        pixel_buffer[index + 11*IPECAMERA_PIXELS_PER_CHANNEL] = ((0xf & raw[base+1]) << 6) | (0x3ff & (raw[base+2] >> 26));
-                        pixel_buffer[index +  7*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+2] >> 16);
-                        pixel_buffer[index +  9*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+2] >> 6);
-                        pixel_buffer[index +  6*IPECAMERA_PIXELS_PER_CHANNEL] = ((0x3f & raw[base+2]) << 4) | (0x3ff & (raw[base+3] >> 28));
-                        pixel_buffer[index +  5*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+3] >> 18);
-                        pixel_buffer[index +  2*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+3] >> 8);
-                        pixel_buffer[index +  4*IPECAMERA_PIXELS_PER_CHANNEL] = ((0xff & raw[base+3]) << 2) | (0x3ff & (raw[base+4] >> 30));
-                        pixel_buffer[index +  3*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+4] >> 20);
-                        pixel_buffer[index +  0*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+4] >> 10);
-                        pixel_buffer[index +  1*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & raw[base+4];
-                        base += 5;
-            */
-
             base += 2;
 
             if (header->magic != 0xc0) {
@@ -480,22 +459,15 @@ ufo_decode_frame_channels_v5(UfoDecoder     *decoder,
                 pixel_buffer[index +  0*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & (raw[base+5] >> 12);
                 pixel_buffer[index +  1*IPECAMERA_PIXELS_PER_CHANNEL] = 0x3ff & raw[base+5];
             }
-            else {
-                off++;
-
-                if (header->magic == 0xc0)
-                    off = 0;
-            }
 
             base += 6;
-
         }
     }
-
 
     *offset = base;
     return 0;
 }
+
 /**
  * \brief Deinterlace by interpolating between two rows
  *
@@ -584,78 +556,78 @@ size_t ufo_decoder_decode_frame(UfoDecoder      *decoder,
     CHECK_VALUE(raw[pos++], 0x55555555);
 
     switch (version) {
-    case 0:
-        CHECK_VALUE(raw[pos++], 0x56666666);
-        CHECK_VALUE(raw[pos] >> 28, 0x5);
-        meta->frame_number = raw[pos++] & 0xFFFFFFF;
-        CHECK_VALUE(raw[pos] >> 28, 0x5);
-        meta->time_stamp = raw[pos++] & 0xFFFFFFF;
-        break;
+        case 0:
+            CHECK_VALUE(raw[pos++], 0x56666666);
+            CHECK_VALUE(raw[pos] >> 28, 0x5);
+            meta->frame_number = raw[pos++] & 0xFFFFFFF;
+            CHECK_VALUE(raw[pos] >> 28, 0x5);
+            meta->time_stamp = raw[pos++] & 0xFFFFFFF;
+            break;
 
-    case 4:
-    case 5:
-        CHECK_VALUE(raw[pos] >> 28, 0x5);
-        meta->cmosis_start_address = (raw[pos] >> 21) & 0x1FF;
-        meta->n_skipped_rows = (raw[pos] >> 15) & 0x3F;
-        meta->n_rows = rows_per_frame = raw[pos] & 0x7FF;
-        pos++;
+        case 4:
+        case 5:
+            CHECK_VALUE(raw[pos] >> 28, 0x5);
+            meta->cmosis_start_address = (raw[pos] >> 21) & 0x1FF;
+            meta->n_skipped_rows = (raw[pos] >> 15) & 0x3F;
+            meta->n_rows = rows_per_frame = raw[pos] & 0x7FF;
+            pos++;
 
-        meta->frame_number = raw[pos++] & 0x1FFFFFF;
-        CHECK_VALUE(raw[pos] >> 28, 0x5);
-        meta->time_stamp = raw[pos] & 0xFFFFFF;
-        meta->output_mode = (raw[pos] >> 24) & 0x3;
-        meta->adc_resolution = (raw[pos] >> 26) & 0x3;
-        pos++;
+            meta->frame_number = raw[pos++] & 0x1FFFFFF;
+            CHECK_VALUE(raw[pos] >> 28, 0x5);
+            meta->time_stamp = raw[pos] & 0xFFFFFF;
+            meta->output_mode = (raw[pos] >> 24) & 0x3;
+            meta->adc_resolution = (raw[pos] >> 26) & 0x3;
+            pos++;
 
-        if ((meta->output_mode != IPECAMERA_MODE_4_CHAN_IO)&&(meta->output_mode != IPECAMERA_MODE_16_CHAN_IO)) {
+            if ((meta->output_mode != IPECAMERA_MODE_4_CHAN_IO)&&(meta->output_mode != IPECAMERA_MODE_16_CHAN_IO)) {
 #ifdef DEBUG
-            fprintf(stderr, "Output mode 0x%lx is not supported\n", meta->output_mode);
+                fprintf(stderr, "Output mode 0x%lx is not supported\n", meta->output_mode);
 #endif
-            return EILSEQ;
-        }
-        break;
+                return EILSEQ;
+            }
+            break;
 
-    default:
-        fprintf(stderr, "Unsupported data format detected\n");
-        return 0;
+        default:
+            fprintf(stderr, "Unsupported data format detected\n");
+            return 0;
     }
 
     if (err)
         return 0;
 #else
     switch (version) {
-    case 0:
-        meta->frame_number = raw[pos + 6] & 0xFFFFFFF;
-        meta->time_stamp = raw[pos + 7] & 0xFFFFFFF;
-        break;
-    case 4:
-    case 5:
-        meta->frame_number = raw[pos + 6] & 0x1FFFFFF;
-        meta->time_stamp = raw[pos + 7] & 0xFFFFFF;
-        meta->output_mode = (raw[pos + 7] >> 24) & 0x3;
-        meta->adc_resolution = (raw[pos + 7] >> 26) & 0x3;
+        case 0:
+            meta->frame_number = raw[pos + 6] & 0xFFFFFFF;
+            meta->time_stamp = raw[pos + 7] & 0xFFFFFFF;
+            break;
+        case 4:
+        case 5:
+            meta->frame_number = raw[pos + 6] & 0x1FFFFFF;
+            meta->time_stamp = raw[pos + 7] & 0xFFFFFF;
+            meta->output_mode = (raw[pos + 7] >> 24) & 0x3;
+            meta->adc_resolution = (raw[pos + 7] >> 26) & 0x3;
 
-        break;
-    default:
-        fprintf(stderr, "Unsupported data format detected\n");
-        return 0;
+            break;
+        default:
+            fprintf(stderr, "Unsupported data format detected\n");
+            return 0;
     }
 
     pos += 8;
 #endif
 
     switch (version) {
-    case 0:
-        err = ufo_decode_frame_channels_v0(decoder, pixels, raw + pos, num_words - pos - 8, &advance);
-        break;
-    case 4:
-        err = ufo_decode_frame_channels_v4(decoder, pixels, raw + pos, num_words - pos - 8, rows_per_frame, &advance);
-        break;
-    case 5:
-        err = ufo_decode_frame_channels_v5(decoder, pixels, raw + pos, num_words - pos - 8, rows_per_frame, &advance, meta->output_mode);
-        break;
-    default:
-        break;
+        case 0:
+            err = ufo_decode_frame_channels_v0(decoder, pixels, raw + pos, num_words - pos - 8, &advance);
+            break;
+        case 4:
+            err = ufo_decode_frame_channels_v4(decoder, pixels, raw + pos, num_words - pos - 8, rows_per_frame, &advance);
+            break;
+        case 5:
+            err = ufo_decode_frame_channels_v5(decoder, pixels, raw + pos, rows_per_frame, &advance, meta->output_mode);
+            break;
+        default:
+            break;
     }
 
     if (err)

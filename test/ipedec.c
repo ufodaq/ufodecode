@@ -8,10 +8,17 @@
 #include <getopt.h>
 #include <ufodecode.h>
 
+typedef struct {
+    int clear_frame;
+    int dry_run;
+    int verbose;
+    int rows;
+} Options;
+
 static int
 read_raw_file(const char *filename, char **buffer, size_t *length)
 {
-    FILE *fp = fopen(filename, "rb"); 
+    FILE *fp = fopen(filename, "rb");
     if (fp == NULL)
         return ENOENT;
 
@@ -38,12 +45,13 @@ read_raw_file(const char *filename, char **buffer, size_t *length)
 static void
 usage(void)
 {
-    printf("usage: ipedec [--num-rows=ROWS] [--clear-frame] FILE [FILE ...]\n\
+    printf("usage: ipedec [OPTION]... FILE [FILE ...]\n\
 Options:\n\
   -h, --help         Show this help message and exit\n\
   -v, --verbose      Print additional information on STDOUT\n\
   -r, --num-rows=N   N rows that are contained in the file\n\
-  -c, --clear-frame  Clear the frame for each iteration\n");
+  -c, --clear-frame  Clear the frame for each iteration\n\
+  -d, --dry-run      Do not save the frames\n");
 }
 
 static void
@@ -121,41 +129,44 @@ timer_stop (Timer *t)
     t->useconds += end.tv_usec - t->start.tv_usec;
 }
 
-static void
-process_file(const char *filename, int rows, int clear_frame, int verbose)
+static int
+process_file(const char *filename, Options *opts)
 {
     UfoDecoder      *decoder;
     UfoDecoderMeta   meta = {0};
     Timer           *timer;
     char            *buffer;
     size_t           num_bytes;
-    int              error;
     uint16_t        *pixels;
     uint32_t         time_stamp, old_time_stamp;
     int              n_frames = 0;
+    int              error = 0;
     FILE            *fp;
     char             output_name[256];
-    
+    float            mtime;
+
     error = read_raw_file(filename, &buffer, &num_bytes);
 
     if (error) {
         fprintf(stderr, "Error reading %s: %s\n", filename, strerror(error));
-        return;
+        return error;
     }
 
-    decoder = ufo_decoder_new(rows, 2048, (uint32_t *) buffer, num_bytes);
+    decoder = ufo_decoder_new(opts->rows, 2048, (uint32_t *) buffer, num_bytes);
 
     if (decoder == NULL) {
         fprintf(stderr, "Failed to initialize decoder\n");
-        return;
+        return 1;
     }
 
-    snprintf(output_name, 256, "%s.raw", filename);
-    fp = fopen(output_name, "wb");
+    if (!opts->dry_run) {
+        snprintf(output_name, 256, "%s.raw", filename);
+        fp = fopen(output_name, "wb");
 
-    if (!fp) {
-        fprintf(stderr, "Failed to open file for writing\n");
-        return;
+        if (!fp) {
+            fprintf(stderr, "Failed to open file for writing\n");
+            return 1;
+        }
     }
 
     timer = timer_new ();
@@ -163,7 +174,7 @@ process_file(const char *filename, int rows, int clear_frame, int verbose)
     n_frames = 0;
 
     while (error != EIO) {
-        if (clear_frame)
+        if (opts->clear_frame)
             memset(pixels, 0, 2048 * 1088 * sizeof(uint16_t));
 
         timer_start (timer);
@@ -171,27 +182,34 @@ process_file(const char *filename, int rows, int clear_frame, int verbose)
         timer_stop (timer);
 
         if (!error) {
-            if (verbose) {
+            if (opts->verbose) {
                 printf("Status for frame %i\n", n_frames);
                 print_meta_data (&meta);
             }
 
             n_frames++;
-            fwrite(pixels, sizeof(uint16_t), 2048 * 1088, fp);
+
+            if (!opts->dry_run)
+                fwrite(pixels, sizeof(uint16_t), 2048 * 1088, fp);
         }
-        else if (error != EIO)
-            fprintf(stderr, "Failed to decode frame %i\n", n_frames); 
+        else if (error != EIO) {
+            fprintf(stderr, "Failed to decode frame %i\n", n_frames);
+            break;
+        }
     }
 
-    fclose(fp);
+    if (!opts->dry_run)
+        fclose(fp);
 
-    float mtime = timer->seconds * 1000.0 + timer->useconds / 1000.0;
+    mtime = timer->seconds * 1000.0 + timer->useconds / 1000.0;
     printf("Decoded %i frames in %.5fms\n", n_frames, mtime);
 
     free(pixels);
     free(buffer);
     timer_destroy (timer);
     ufo_decoder_free(decoder);
+
+    return error == EIO ? 0 : error;
 }
 
 int main(int argc, char const* argv[])
@@ -199,34 +217,41 @@ int main(int argc, char const* argv[])
     int getopt_ret, index;
 
     static struct option long_options[] = {
-        { "num-rows", required_argument, 0, 'r' },
-        { "clear-frame", no_argument, 0, 'c' },
-        { "verbose", no_argument, 0, 'v' },
-        { "help", no_argument, 0, 'h' },
+        { "num-rows",       required_argument, 0, 'r' },
+        { "clear-frame",    no_argument, 0, 'c' },
+        { "verbose",        no_argument, 0, 'v' },
+        { "help",           no_argument, 0, 'h' },
+        { "dry-run",        no_argument, 0, 'd' },
         { 0, 0, 0, 0 }
     };
 
-    int clear_frame = 0;
-    int verbose = 0;
-    int rows = 1088;
+    static Options opts = {
+        .clear_frame = 0,
+        .dry_run = 0,
+        .verbose = 0,
+        .rows = 1088
+    };
 
-    while ((getopt_ret = getopt_long(argc, (char *const *) argv, "r:cvh", long_options, &index)) != -1) {
+    while ((getopt_ret = getopt_long(argc, (char *const *) argv, "r:cvhd", long_options, &index)) != -1) {
         switch (getopt_ret) {
-            case 'r': 
-                rows = atoi(optarg);
+            case 'r':
+                opts.rows = atoi(optarg);
                 break;
             case 'c':
-                clear_frame = 1;
+                opts.clear_frame = 1;
                 break;
             case 'v':
-                verbose = 1;
+                opts.verbose = 1;
                 break;
             case 'h':
                 usage();
                 return 0;
+            case 'd':
+                opts.dry_run = 1;
+                break;
             default:
                 break;
-        } 
+        }
     }
 
     if (optind == argc) {
@@ -234,8 +259,12 @@ int main(int argc, char const* argv[])
         return 1;
     }
 
-    while (optind < argc)
-        process_file(argv[optind++], rows, clear_frame, verbose);
+    while (optind < argc) {
+        int errcode = process_file(argv[optind++], &opts);
+
+        if (errcode != 0)
+            return errcode;
+    }
 
     return 0;
 }
