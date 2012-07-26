@@ -13,6 +13,8 @@ typedef struct {
     int dry_run;
     int verbose;
     int rows;
+    int print_frame_rate;
+    int print_num_rows;
 } Options;
 
 static int
@@ -47,11 +49,13 @@ usage(void)
 {
     printf("usage: ipedec [OPTION]... FILE [FILE ...]\n\
 Options:\n\
-  -h, --help         Show this help message and exit\n\
-  -v, --verbose      Print additional information on STDOUT\n\
-  -r, --num-rows=N   N rows that are contained in the file\n\
-  -c, --clear-frame  Clear the frame for each iteration\n\
-  -d, --dry-run      Do not save the frames\n");
+  -h, --help                Show this help message and exit\n\
+  -v, --verbose             Print additional information on STDOUT\n\
+  -r, --num-rows=N          N rows that are contained in the file\n\
+  -c, --clear-frame         Clear the frame for each iteration\n\
+  -d, --dry-run             Do not save the frames\n\
+  -f, --print-frame-rate    Print frame rate on STDOUT\n\
+      --print-num-rows      Print number of rows on STDOUT\n");
 }
 
 static void
@@ -139,7 +143,7 @@ process_file(const char *filename, Options *opts)
     size_t           num_bytes;
     uint16_t        *pixels;
     uint32_t         time_stamp, old_time_stamp;
-    int              n_frames = 0;
+    int              n_frames;
     int              error = 0;
     FILE            *fp;
     char             output_name[256];
@@ -172,6 +176,7 @@ process_file(const char *filename, Options *opts)
     timer = timer_new ();
     pixels = (uint16_t *) malloc(2048 * 1088 * sizeof(uint16_t));
     n_frames = 0;
+    old_time_stamp = 0;
 
     while (error != EIO) {
         if (opts->clear_frame)
@@ -187,6 +192,16 @@ process_file(const char *filename, Options *opts)
                 print_meta_data (&meta);
             }
 
+            if (opts->print_frame_rate && old_time_stamp != 0) {
+                uint32_t diff = 80 * (meta.time_stamp - old_time_stamp);
+
+                printf("%d", 1000000000 / diff);
+                old_time_stamp = meta.time_stamp;
+            }
+
+            if (opts->print_frame_rate || opts->print_num_rows)
+                printf("\n");
+
             n_frames++;
 
             if (!opts->dry_run)
@@ -201,8 +216,10 @@ process_file(const char *filename, Options *opts)
     if (!opts->dry_run)
         fclose(fp);
 
-    mtime = timer->seconds * 1000.0 + timer->useconds / 1000.0;
-    printf("Decoded %i frames in %.5fms\n", n_frames, mtime);
+    if (opts->verbose) {
+        mtime = timer->seconds * 1000.0 + timer->useconds / 1000.0;
+        printf("Decoded %i frames in %.5fms\n", n_frames, mtime);
+    }
 
     free(pixels);
     free(buffer);
@@ -216,39 +233,58 @@ int main(int argc, char const* argv[])
 {
     int getopt_ret, index;
 
+    enum {
+        CLEAR_FRAME  = 'c',
+        DRY_RUN      = 'd',
+        FRAME_RATE   = 'f',
+        HELP         = 'h',
+        SET_NUM_ROWS = 'r', 
+        VERBOSE      = 'v',
+        NUM_ROWS
+    };
+
     static struct option long_options[] = {
-        { "num-rows",       required_argument, 0, 'r' },
-        { "clear-frame",    no_argument, 0, 'c' },
-        { "verbose",        no_argument, 0, 'v' },
-        { "help",           no_argument, 0, 'h' },
-        { "dry-run",        no_argument, 0, 'd' },
+        { "num-rows",           required_argument, 0, SET_NUM_ROWS },
+        { "clear-frame",        no_argument, 0, CLEAR_FRAME },
+        { "verbose",            no_argument, 0, VERBOSE },
+        { "help",               no_argument, 0, HELP },
+        { "dry-run",            no_argument, 0, DRY_RUN },
+        { "print-frame-rate",   no_argument, 0, FRAME_RATE },
+        { "print-num-rows",     no_argument, 0, NUM_ROWS },
         { 0, 0, 0, 0 }
     };
 
     static Options opts = {
-        .clear_frame = 0,
-        .dry_run = 0,
+        .rows = 1088,
         .verbose = 0,
-        .rows = 1088
+        .dry_run = 0,
+        .clear_frame = 0,
+        .print_frame_rate = 0,
+        .print_num_rows = 0
     };
 
-    while ((getopt_ret = getopt_long(argc, (char *const *) argv, "r:cvhd", long_options, &index)) != -1) {
+    while ((getopt_ret = getopt_long(argc, (char *const *) argv, "r:cvhdf", long_options, &index)) != -1) {
         switch (getopt_ret) {
-            case 'r':
+            case SET_NUM_ROWS:
                 opts.rows = atoi(optarg);
                 break;
-            case 'c':
+            case CLEAR_FRAME:
                 opts.clear_frame = 1;
                 break;
-            case 'v':
+            case VERBOSE:
                 opts.verbose = 1;
                 break;
-            case 'h':
+            case HELP:
                 usage();
                 return 0;
-            case 'd':
+            case DRY_RUN:
                 opts.dry_run = 1;
                 break;
+            case FRAME_RATE:
+                opts.print_frame_rate = 1;
+                break;
+            case NUM_ROWS:
+                opts.print_num_rows = 1;
             default:
                 break;
         }
