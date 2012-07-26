@@ -51,6 +51,8 @@ print_meta_data (UfoDecoderMeta *meta)
 {
     printf("  frame_number    = %i\n", meta->frame_number);
     printf("  time_stamp      = %i\n", meta->time_stamp);
+    printf("  output_mode     = %i\n", meta->output_mode);
+    printf("  adc_resolution  = %i\n", meta->adc_resolution);
     printf("  n_rows          = %i\n", meta->n_rows);
     printf("  n_skipped_rows  = %i\n", meta->n_skipped_rows);
 

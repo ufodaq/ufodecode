@@ -45,6 +45,9 @@ typedef struct {
     uint32_t        n_rows;
     uint8_t         n_skipped_rows;
     uint16_t        cmosis_start_address;
+    uint8_t         output_mode;
+    uint8_t         adc_resolution;
+
     union {
         uint32_t            bits;
         UfoDecoderStatus1   desc;
