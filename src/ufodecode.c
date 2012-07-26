@@ -607,7 +607,7 @@ size_t ufo_decoder_decode_frame(UfoDecoder      *decoder,
         meta->adc_resolution = (raw[pos] >> 26) & 0x3;
         pos++;
 
-        if ((meta->output_mode != IPECAMERA_MODE_4_CHAN_IO)&&(meta->output_mode != IPECAMERA_MODE_4_CHAN_IO)) {
+        if ((meta->output_mode != IPECAMERA_MODE_4_CHAN_IO)&&(meta->output_mode != IPECAMERA_MODE_16_CHAN_IO)) {
 #ifdef DEBUG
             fprintf(stderr, "Output mode 0x%lx is not supported\n", meta->output_mode);
 #endif
