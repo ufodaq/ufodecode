@@ -15,6 +15,7 @@ typedef struct {
     int rows;
     int print_frame_rate;
     int print_num_rows;
+    int cont;
 } Options;
 
 static int
@@ -55,7 +56,8 @@ Options:\n\
   -c, --clear-frame         Clear the frame for each iteration\n\
   -d, --dry-run             Do not save the frames\n\
   -f, --print-frame-rate    Print frame rate on STDOUT\n\
-      --print-num-rows      Print number of rows on STDOUT\n");
+      --print-num-rows      Print number of rows on STDOUT\n\
+      --continue            Continue decoding frames even when errors occur\n");
 }
 
 static void
@@ -185,9 +187,9 @@ process_file(const char *filename, Options *opts)
         timer_start (timer);
         error = ufo_decoder_get_next_frame(decoder, &pixels, &meta);
         timer_stop (timer);
+        n_frames++;
 
         if (!error) {
-            n_frames++;
 
             if (opts->verbose) {
                 printf("Status for frame %i\n", n_frames);
@@ -212,7 +214,14 @@ process_file(const char *filename, Options *opts)
         }
         else if (error != EIO) {
             fprintf(stderr, "Failed to decode frame %i\n", n_frames);
-            break;
+
+            if (opts->cont) {
+                /* Save the frame even though we know it is corrupted */
+                if (!opts->dry_run)
+                    fwrite(pixels, sizeof(uint16_t), 2048 * 1088, fp);
+            }
+            else
+                break;
         }
     }
 
@@ -243,6 +252,7 @@ int main(int argc, char const* argv[])
         HELP         = 'h',
         SET_NUM_ROWS = 'r', 
         VERBOSE      = 'v',
+        CONTINUE,
         NUM_ROWS
     };
 
@@ -253,6 +263,7 @@ int main(int argc, char const* argv[])
         { "help",               no_argument, 0, HELP },
         { "dry-run",            no_argument, 0, DRY_RUN },
         { "print-frame-rate",   no_argument, 0, FRAME_RATE },
+        { "continue",           no_argument, 0, CONTINUE },
         { "print-num-rows",     no_argument, 0, NUM_ROWS },
         { 0, 0, 0, 0 }
     };
@@ -263,7 +274,8 @@ int main(int argc, char const* argv[])
         .dry_run = 0,
         .clear_frame = 0,
         .print_frame_rate = 0,
-        .print_num_rows = 0
+        .print_num_rows = 0,
+        .cont = 0
     };
 
     while ((getopt_ret = getopt_long(argc, (char *const *) argv, "r:cvhdf", long_options, &index)) != -1) {
@@ -285,6 +297,9 @@ int main(int argc, char const* argv[])
                 break;
             case FRAME_RATE:
                 opts.print_frame_rate = 1;
+                break;
+            case CONTINUE:
+                opts.cont = 1;
                 break;
             case NUM_ROWS:
                 opts.print_num_rows = 1;
