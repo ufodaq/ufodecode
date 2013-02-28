@@ -8,6 +8,8 @@
 #include <getopt.h>
 #include <ufodecode.h>
 
+static const int MAX_ROWS = 2048;
+
 typedef struct {
     int clear_frame;
     int dry_run;
@@ -176,13 +178,13 @@ process_file(const char *filename, Options *opts)
     }
 
     timer = timer_new ();
-    pixels = (uint16_t *) malloc(2048 * 1088 * sizeof(uint16_t));
+    pixels = (uint16_t *) malloc(2048 * MAX_ROWS * sizeof(uint16_t));
     n_frames = 0;
     old_time_stamp = 0;
 
     while (error != EIO) {
         if (opts->clear_frame)
-            memset(pixels, 0, 2048 * 1088 * sizeof(uint16_t));
+            memset(pixels, 0, 2048 * opts->rows * sizeof(uint16_t));
 
         timer_start (timer);
         error = ufo_decoder_get_next_frame(decoder, &pixels, &meta);
@@ -210,7 +212,7 @@ process_file(const char *filename, Options *opts)
                 printf("\n");
 
             if (!opts->dry_run)
-                fwrite(pixels, sizeof(uint16_t), 2048 * 1088, fp);
+                fwrite(pixels, sizeof(uint16_t), 2048 * opts->rows , fp);
         }
         else if (error != EIO) {
             fprintf(stderr, "Failed to decode frame %i\n", n_frames);
@@ -218,7 +220,7 @@ process_file(const char *filename, Options *opts)
             if (opts->cont) {
                 /* Save the frame even though we know it is corrupted */
                 if (!opts->dry_run)
-                    fwrite(pixels, sizeof(uint16_t), 2048 * 1088, fp);
+                    fwrite(pixels, sizeof(uint16_t), 2048 * opts->rows, fp);
             }
             else
                 break;
