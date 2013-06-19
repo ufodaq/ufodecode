@@ -598,7 +598,7 @@ size_t ufo_decoder_decode_frame(UfoDecoder      *decoder,
             break;
         case 4:
         case 5:
-            meta->n_rows = rows_per_frame = raw[pos] & 0x7FF;
+            meta->n_rows = rows_per_frame = raw[pos + 5] & 0x7FF;
             meta->frame_number = raw[pos + 6] & 0x1FFFFFF;
             meta->time_stamp = raw[pos + 7] & 0xFFFFFF;
             meta->output_mode = (raw[pos + 7] >> 24) & 0x3;
