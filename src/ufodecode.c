@@ -558,6 +558,7 @@ size_t ufo_decoder_decode_frame(UfoDecoder      *decoder,
             meta->frame_number = raw[pos++] & 0xFFFFFFF;
             CHECK_VALUE(raw[pos] >> 28, 0x5);
             meta->time_stamp = raw[pos++] & 0xFFFFFFF;
+            meta->n_rows = 1088;
             break;
 
         case 4:
@@ -576,9 +577,7 @@ size_t ufo_decoder_decode_frame(UfoDecoder      *decoder,
             pos++;
 
             if ((meta->output_mode != IPECAMERA_MODE_4_CHAN_IO) && (meta->output_mode != IPECAMERA_MODE_16_CHAN_IO)) {
-#ifdef DEBUG
                 fprintf(stderr, "Output mode 0x%x is not supported\n", meta->output_mode);
-#endif
                 return EILSEQ;
             }
             break;
@@ -593,11 +592,13 @@ size_t ufo_decoder_decode_frame(UfoDecoder      *decoder,
 #else
     switch (version) {
         case 0:
+            meta->n_rows = 1088;
             meta->frame_number = raw[pos + 6] & 0xFFFFFFF;
             meta->time_stamp = raw[pos + 7] & 0xFFFFFFF;
             break;
         case 4:
         case 5:
+            meta->n_rows = rows_per_frame = raw[pos] & 0x7FF;
             meta->frame_number = raw[pos + 6] & 0x1FFFFFF;
             meta->time_stamp = raw[pos + 7] & 0xFFFFFF;
             meta->output_mode = (raw[pos + 7] >> 24) & 0x3;

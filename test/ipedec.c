@@ -183,16 +183,16 @@ process_file(const char *filename, Options *opts)
     old_time_stamp = 0;
 
     while (error != EIO) {
-        if (opts->clear_frame)
-            memset(pixels, 0, 2048 * opts->rows * sizeof(uint16_t));
-
         timer_start (timer);
         error = ufo_decoder_get_next_frame(decoder, &pixels, &meta);
+
+        if (meta.n_rows == 0)
+            meta.n_rows = opts->rows;
+
         timer_stop (timer);
         n_frames++;
 
         if (!error) {
-
             if (opts->verbose) {
                 printf("Status for frame %i\n", n_frames);
                 print_meta_data (&meta);
@@ -211,8 +211,11 @@ process_file(const char *filename, Options *opts)
             if (opts->print_frame_rate || opts->print_num_rows)
                 printf("\n");
 
+            if (opts->clear_frame)
+                memset(pixels, 0, 2048 * meta.n_rows * sizeof(uint16_t));
+
             if (!opts->dry_run)
-                fwrite(pixels, sizeof(uint16_t), 2048 * opts->rows , fp);
+                fwrite(pixels, sizeof(uint16_t), 2048 * meta.n_rows , fp);
         }
         else if (error != EIO) {
             fprintf(stderr, "Failed to decode frame %i\n", n_frames);
@@ -220,7 +223,7 @@ process_file(const char *filename, Options *opts)
             if (opts->cont) {
                 /* Save the frame even though we know it is corrupted */
                 if (!opts->dry_run)
-                    fwrite(pixels, sizeof(uint16_t), 2048 * opts->rows, fp);
+                    fwrite(pixels, sizeof(uint16_t), 2048 * meta.n_rows, fp);
             }
             else
                 break;
