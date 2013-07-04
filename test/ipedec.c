@@ -21,6 +21,7 @@ typedef struct {
     int convert_bayer;
 } Options;
 
+
 static int
 read_raw_file(const char *filename, char **buffer, size_t *length)
 {
@@ -102,7 +103,6 @@ print_meta_data (UfoDecoderMeta *meta)
     printf("    ddr_arbiter     = %i\n", meta->status3.desc.ddr_arbiter);
     printf("\n");
 }
-
 
 static int
 process_file(const char *filename, Options *opts)
@@ -217,8 +217,8 @@ process_file(const char *filename, Options *opts)
         fclose(fp);
 
     if (opts->verbose) {
-        mtime = timer->seconds * 1000.0 + timer->useconds / 1000.0;
-        printf("Decoded %i frames in %.5fms\n", n_frames, mtime);
+        printf("Decoded %i frames in %.5fms\n", n_frames,
+               timer_get_seconds (timer) * 1000.0);
     }
 
     if (opts->convert_bayer)

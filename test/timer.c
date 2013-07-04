@@ -1,6 +1,12 @@
 #include <stdlib.h>
 #include "timer.h"
 
+struct _Timer {
+    struct timeval  start;
+    long            seconds;
+    long            useconds;
+};
+
 
 Timer *
 timer_new (void)
@@ -30,4 +36,10 @@ timer_stop (Timer *t)
     gettimeofday(&end, NULL);
     t->seconds += end.tv_sec - t->start.tv_sec;
     t->useconds += end.tv_usec - t->start.tv_usec;
+}
+
+double
+timer_get_seconds (Timer *t)
+{
+    return t->seconds + t->useconds / 1000.0 / 1000.0;
 }

@@ -3,15 +3,12 @@
 
 #include <sys/time.h>
 
-typedef struct {
-    struct timeval  start;
-    long            seconds;
-    long            useconds;
-} Timer;
+typedef struct _Timer Timer;
 
-Timer * timer_new       (void);
-void    timer_destroy   (Timer *t);
-void    timer_start     (Timer *t);
-void    timer_stop      (Timer *t);
+Timer * timer_new           (void);
+void    timer_destroy       (Timer *t);
+void    timer_start         (Timer *t);
+void    timer_stop          (Timer *t);
+double  timer_get_seconds   (Timer *t);
 
 #endif
