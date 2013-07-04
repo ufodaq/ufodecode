@@ -104,6 +104,26 @@ print_meta_data (UfoDecoderMeta *meta)
     printf("\n");
 }
 
+static void
+write_raw_file (UfoDecoderMeta *meta,
+                Options *opts,
+                uint16_t *pixels,
+                FILE *fp)
+{
+    size_t n_rows = meta->n_rows;
+
+    if (opts->convert_bayer) {
+        uint8_t *rgb_pixels = malloc (2048 * n_rows * 3);
+
+        ufo_convert_bayer_to_rgb (pixels, rgb_pixels, 2048, n_rows);
+        fwrite (rgb_pixels, sizeof(uint8_t), 2048 * n_rows * 3, fp);
+        free (rgb_pixels);
+    }
+    else {
+        fwrite(pixels, sizeof(uint16_t), 2048 * n_rows, fp);
+    }
+}
+
 static int
 process_file(const char *filename, Options *opts)
 {
@@ -113,7 +133,6 @@ process_file(const char *filename, Options *opts)
     char            *buffer;
     size_t           num_bytes;
     uint16_t        *pixels;
-    uint8_t         *rgb_pixels;
     uint32_t         time_stamp, old_time_stamp;
     int              n_frames;
     int              error = 0;
@@ -145,17 +164,14 @@ process_file(const char *filename, Options *opts)
         }
     }
 
-    if (opts->convert_bayer)
-        rgb_pixels = malloc (2048 * MAX_ROWS * 3);
-
     timer = timer_new ();
-    pixels = (uint16_t *) malloc(2048 * MAX_ROWS * sizeof(uint16_t));
+    pixels = (uint16_t *) malloc (2048 * MAX_ROWS * sizeof(uint16_t));
     n_frames = 0;
     old_time_stamp = 0;
 
     while (error != EIO) {
         timer_start (timer);
-        error = ufo_decoder_get_next_frame(decoder, &pixels, &meta);
+        error = ufo_decoder_get_next_frame (decoder, &pixels, &meta);
 
         if (meta.n_rows == 0)
             meta.n_rows = opts->rows;
@@ -185,28 +201,16 @@ process_file(const char *filename, Options *opts)
             if (opts->clear_frame)
                 memset(pixels, 0, 2048 * meta.n_rows * sizeof(uint16_t));
 
-            if (!opts->dry_run) {
-                if (opts->convert_bayer) {
-                    ufo_convert_bayer_to_rgb (pixels, rgb_pixels, 2048, meta.n_rows);
-                    fwrite (rgb_pixels, sizeof(uint8_t), 2048 * meta.n_rows * 3, fp);
-                }
-                else
-                    fwrite(pixels, sizeof(uint16_t), 2048 * meta.n_rows, fp);
-            }
+            if (!opts->dry_run)
+                write_raw_file (&meta, opts, pixels, fp);
         }
         else if (error != EIO) {
             fprintf(stderr, "Failed to decode frame %i\n", n_frames);
 
             if (opts->cont) {
                 /* Save the frame even though we know it is corrupted */
-                if (!opts->dry_run) {
-                    if (opts->convert_bayer) {
-                        ufo_convert_bayer_to_rgb (pixels, rgb_pixels, 2048, meta.n_rows);
-                        fwrite (rgb_pixels, sizeof(uint8_t), 2048 * meta.n_rows * 3, fp);
-                    }
-                    else
-                        fwrite(pixels, sizeof(uint16_t), 2048 * meta.n_rows, fp);
-                }
+                if (!opts->dry_run)
+                    write_raw_file (&meta, opts, pixels, fp);
             }
             else
                 break;
@@ -220,9 +224,6 @@ process_file(const char *filename, Options *opts)
         printf("Decoded %i frames in %.5fms\n", n_frames,
                timer_get_seconds (timer) * 1000.0);
     }
-
-    if (opts->convert_bayer)
-        free (rgb_pixels);
 
     free(pixels);
     free(buffer);
