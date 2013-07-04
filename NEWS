@@ -1,3 +1,13 @@
+Changes in ufodecode 0.2.3
+==========================
+
+This is bugfix release:
+
+- Fix segmentation fault for large sensor
+- Try to guess the number of rows from header
+- Fix installation
+
+
 Changes in ufodecode 0.2.2
 ==========================
 
