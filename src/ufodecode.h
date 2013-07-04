@@ -91,6 +91,10 @@ void        ufo_deinterlace_weave       (const uint16_t *in1,
                                          uint16_t       *out, 
                                          int             width, 
                                          int             height);
+void        ufo_convert_bayer_to_rgb    (const uint16_t *in,
+                                         uint8_t        *out,
+                                         int             width,
+                                         int             height);
 
 #ifdef __cplusplus
 }

@@ -18,6 +18,7 @@ typedef struct {
     int print_frame_rate;
     int print_num_rows;
     int cont;
+    int convert_bayer;
 } Options;
 
 static int
@@ -59,7 +60,8 @@ Options:\n\
   -d, --dry-run             Do not save the frames\n\
   -f, --print-frame-rate    Print frame rate on STDOUT\n\
       --print-num-rows      Print number of rows on STDOUT\n\
-      --continue            Continue decoding frames even when errors occur\n");
+      --continue            Continue decoding frames even when errors occur\n\
+      --convert-bayer       Convert Bayer pattern to 24 Bit RGB\n");
 }
 
 static void
@@ -146,6 +148,7 @@ process_file(const char *filename, Options *opts)
     char            *buffer;
     size_t           num_bytes;
     uint16_t        *pixels;
+    uint8_t         *rgb_pixels;
     uint32_t         time_stamp, old_time_stamp;
     int              n_frames;
     int              error = 0;
@@ -176,6 +179,9 @@ process_file(const char *filename, Options *opts)
             return 1;
         }
     }
+
+    if (opts->convert_bayer)
+        rgb_pixels = malloc (2048 * MAX_ROWS * 3);
 
     timer = timer_new ();
     pixels = (uint16_t *) malloc(2048 * MAX_ROWS * sizeof(uint16_t));
@@ -214,16 +220,28 @@ process_file(const char *filename, Options *opts)
             if (opts->clear_frame)
                 memset(pixels, 0, 2048 * meta.n_rows * sizeof(uint16_t));
 
-            if (!opts->dry_run)
-                fwrite(pixels, sizeof(uint16_t), 2048 * meta.n_rows , fp);
+            if (!opts->dry_run) {
+                if (opts->convert_bayer) {
+                    ufo_convert_bayer_to_rgb (pixels, rgb_pixels, 2048, meta.n_rows);
+                    fwrite (rgb_pixels, sizeof(uint8_t), 2048 * meta.n_rows * 3, fp);
+                }
+                else
+                    fwrite(pixels, sizeof(uint16_t), 2048 * meta.n_rows, fp);
+            }
         }
         else if (error != EIO) {
             fprintf(stderr, "Failed to decode frame %i\n", n_frames);
 
             if (opts->cont) {
                 /* Save the frame even though we know it is corrupted */
-                if (!opts->dry_run)
-                    fwrite(pixels, sizeof(uint16_t), 2048 * meta.n_rows, fp);
+                if (!opts->dry_run) {
+                    if (opts->convert_bayer) {
+                        ufo_convert_bayer_to_rgb (pixels, rgb_pixels, 2048, meta.n_rows);
+                        fwrite (rgb_pixels, sizeof(uint8_t), 2048 * meta.n_rows * 3, fp);
+                    }
+                    else
+                        fwrite(pixels, sizeof(uint16_t), 2048 * meta.n_rows, fp);
+                }
             }
             else
                 break;
@@ -237,6 +255,9 @@ process_file(const char *filename, Options *opts)
         mtime = timer->seconds * 1000.0 + timer->useconds / 1000.0;
         printf("Decoded %i frames in %.5fms\n", n_frames, mtime);
     }
+
+    if (opts->convert_bayer)
+        free (rgb_pixels);
 
     free(pixels);
     free(buffer);
@@ -258,7 +279,8 @@ int main(int argc, char const* argv[])
         SET_NUM_ROWS = 'r', 
         VERBOSE      = 'v',
         CONTINUE,
-        NUM_ROWS
+        NUM_ROWS,
+        CONVERT_BAYER,
     };
 
     static struct option long_options[] = {
@@ -270,6 +292,7 @@ int main(int argc, char const* argv[])
         { "print-frame-rate",   no_argument, 0, FRAME_RATE },
         { "continue",           no_argument, 0, CONTINUE },
         { "print-num-rows",     no_argument, 0, NUM_ROWS },
+        { "convert-bayer",      no_argument, 0, CONVERT_BAYER },
         { 0, 0, 0, 0 }
     };
 
@@ -280,7 +303,8 @@ int main(int argc, char const* argv[])
         .clear_frame = 0,
         .print_frame_rate = 0,
         .print_num_rows = 0,
-        .cont = 0
+        .cont = 0,
+        .convert_bayer = 0
     };
 
     while ((getopt_ret = getopt_long(argc, (char *const *) argv, "r:cvhdf", long_options, &index)) != -1) {
@@ -308,6 +332,10 @@ int main(int argc, char const* argv[])
                 break;
             case NUM_ROWS:
                 opts.print_num_rows = 1;
+                break;
+            case CONVERT_BAYER:
+                opts.convert_bayer = 1;
+                break;
             default:
                 break;
         }

@@ -719,3 +719,84 @@ int ufo_decoder_get_next_frame(UfoDecoder     *decoder,
     return 0;
 }
 
+/**
+ * \brief Convert Bayer pattern to RGB
+ *
+ * Convert Bayer pattern to RGB via bilinear interpolation.
+ *
+ * \param in 16 bit input data in Bayer pattern format
+ * \param out Location for 24 bit output data in RGB format. At
+ * least width x height x 3 bytes must be allocated.
+ * \param width Width of a frame
+ * \param height Height of a frame
+ */
+void ufo_convert_bayer_to_rgb (const uint16_t *in,
+                               uint8_t *out,
+                               int width,
+                               int height)
+{
+    /* According to the CMV docs, the pattern starts at (0,0) with
+     *
+     *   R G
+     *   G B
+     */
+
+#define BY(x,y) in[(x) + width * (y)]
+#define R(x,y) out[0 + 3 * ((x) + width * (y))]
+#define G(x,y) out[1 + 3 * ((x) + width * (y))]
+#define B(x,y) out[2 + 3 * ((x) + width * (y))]
+
+    double scale;
+    uint16_t max = 0;
+
+    for (int i = 0; i < width * height; i++) {
+        if (max < in[i])
+            max = in[i];
+    }
+
+    scale = 255. / max;
+
+    for (int i = 1; i < width - 1; i += 2) {
+        for (int j = 1; j < height - 1; j += 2) {
+            /* Top left */
+            R(i + 0, j + 0) = ((uint32_t) BY(i - 1, j - 1) +
+                               (uint32_t) BY(i + 1, j - 1) +
+                               (uint32_t) BY(i - 1, j + 1) +
+                               (uint32_t) BY(i + 1, j + 1)) / 4 * scale;
+            G(i + 0, j + 0) = ((uint32_t) BY(i - 1, j + 0) +
+                               (uint32_t) BY(i + 0, j - 1) +
+                               (uint32_t) BY(i + 1, j + 0) +
+                               (uint32_t) BY(i + 0, j + 1)) / 4 * scale;
+            B(i + 0, j + 0) = BY(i + 0, j + 0) * scale;
+
+            /* Top right */
+            R(i + 1, j + 0) = ((uint32_t) BY(i + 1, j - 1) +
+                               (uint32_t) BY(i + 1, j + 1)) / 2 * scale;
+            G(i + 1, j + 0) = BY(i + 1, j + 0) * scale;
+            B(i + 1, j + 0) = ((uint32_t) BY(i + 0, j + 0) +
+                               (uint32_t) BY(i + 2, j + 0)) / 2 * scale;
+
+            /* Lower left */
+            R(i + 0, j + 1) = ((uint32_t) BY(i - 1, j + 0) +
+                               (uint32_t) BY(i + 1, j + 1)) / 2 * scale;
+            G(i + 0, j + 1) = BY(i + 0, j + 1) * scale;
+            B(i + 0, j + 1) = ((uint32_t) BY(i + 0, j + 0) +
+                               (uint32_t) BY(i + 0, j + 2)) / 2 * scale;
+
+            /* Lower right */
+            R(i + 1, j + 1) = BY(i + 1, j + 1) * scale;
+            G(i + 1, j + 1) = ((uint32_t) BY(i + 1, j + 0) +
+                               (uint32_t) BY(i + 0, j + 1) +
+                               (uint32_t) BY(i + 2, j + 1) +
+                               (uint32_t) BY(i + 2, j + 1)) / 4 * scale;
+            B(i + 1, j + 1) = ((uint32_t) BY(i + 0, j + 0) +
+                               (uint32_t) BY(i + 2, j + 0) +
+                               (uint32_t) BY(i + 0, j + 2) +
+                               (uint32_t) BY(i + 2, j + 2)) / 4 * scale;
+        }
+    }
+
+#undef R
+#undef G
+#undef B
+}
