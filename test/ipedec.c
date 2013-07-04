@@ -4,9 +4,9 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
-#include <sys/time.h>
 #include <getopt.h>
 #include <ufodecode.h>
+#include "timer.h"
 
 static const int MAX_ROWS = 2048;
 
@@ -103,41 +103,6 @@ print_meta_data (UfoDecoderMeta *meta)
     printf("\n");
 }
 
-typedef struct {
-    struct timeval  start;
-    long            seconds;
-    long            useconds;
-} Timer;
-
-static Timer *
-timer_new (void)
-{
-    Timer *t = (Timer *) malloc (sizeof (Timer));
-    t->seconds = t->useconds = 0L;
-    return t;
-}
-
-static void
-timer_destroy (Timer *t)
-{
-    free (t);
-}
-
-static void
-timer_start (Timer *t)
-{
-    gettimeofday(&t->start, NULL);
-}
-
-static void
-timer_stop (Timer *t)
-{
-    struct timeval end;
-
-    gettimeofday(&end, NULL);
-    t->seconds += end.tv_sec - t->start.tv_sec;
-    t->useconds += end.tv_usec - t->start.tv_usec;
-}
 
 static int
 process_file(const char *filename, Options *opts)
