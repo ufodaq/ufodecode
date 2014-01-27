@@ -587,8 +587,19 @@ size_t ufo_decoder_decode_frame(UfoDecoder      *decoder,
             return 0;
     }
 
-    if (err)
+    if (err) {
+        fprintf(stderr, "Corrupt data:");
+
+        for (int i = 0; i < pos; i++) {
+            if ((i % 8) == 0)
+                fprintf(stderr, "\n");
+
+            fprintf(stderr, " %#08x", raw[i]);
+        }
+
+        fprintf(stderr, "\n");
         return 0;
+    }
 #else
     switch (version) {
         case 0:
