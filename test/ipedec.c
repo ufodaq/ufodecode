@@ -177,9 +177,10 @@ process_file(const char *filename, Options *opts)
             meta.n_rows = opts->rows;
 
         timer_stop (timer);
-        n_frames++;
 
         if (!error) {
+            n_frames++;
+
             if (opts->verbose) {
                 printf("Status for frame %i\n", n_frames);
                 print_meta_data (&meta);
