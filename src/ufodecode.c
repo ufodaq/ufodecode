@@ -135,6 +135,9 @@ ufo_decode_frame_channels_v0(UfoDecoder     *decoder,
     const size_t cpi = num_rows * cpl;
     int pos = 0;
     uint32_t data;
+#if defined(DEBUG) || defined(CHECKS)
+    int err;
+#endif
 
 #if defined(HAVE_SSE) && !defined(DEBUG)
     __m128i mask = _mm_set_epi32(0x3FF, 0x3FF, 0x3FF, 0x3FF);
@@ -159,7 +162,6 @@ ufo_decode_frame_channels_v0(UfoDecoder     *decoder,
 #ifdef CHECKS
         int header = (info >> 30) & 0x03;
         const int bpp = (info >> 16) & 0x0F;
-        int err;
         CHECK_FLAG("raw header magick", header == 2, header);
         CHECK_FLAG("row number, only %i rows requested", row < num_rows, row, num_rows);
         CHECK_FLAG("pixel size, only 10 bits are supported", bpp == 10, bpp);
@@ -241,6 +243,9 @@ ufo_decode_frame_channels_v0(UfoDecoder     *decoder,
         header = (data >> 30) & 0x03;
         CHECK_FLAG("raw data magic", header == 3, header);
         CHECK_FLAG("raw footer magic", (data & 0x3FF) == 0x55, (data & 0x3FF));
+#endif
+
+#if defined(DEBUG) || defined(CHECKS)
         if (err)
             return err;
 #endif
