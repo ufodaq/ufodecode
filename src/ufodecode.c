@@ -716,10 +716,13 @@ int ufo_decoder_get_next_frame(UfoDecoder     *decoder,
     pos += advance == 0 ? 1 : advance;
 
     /* if bytes left and we see fill bytes, skip them */
-    if (((pos + 2) < num_words) && ((raw[pos] == 0x0) && (raw[pos+1] == 0x1111111))) {
+    if (((pos + 2) < num_words) && ((raw[pos] == 0x0) && ((raw[pos+1] == 0x1111111) || raw[pos+1] == 0x0))) {
         pos += 2;
-        while ((pos < num_words) && ((raw[pos] == 0x89abcdef) || (raw[pos] == 0x1234567)))
+        while ((pos < num_words) &&
+               ((raw[pos] == 0x89abcdef) || (raw[pos] == 0x1234567) ||
+                (raw[pos] == 0x0) || (raw[pos] == 0xdeadbeef) || (0x98badcfe)))     /* new filling ... */ {
             pos++;
+        }
     }
 
     decoder->current_pos = pos;
