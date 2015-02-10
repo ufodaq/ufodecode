@@ -1,6 +1,4 @@
-
-General Information
-===================
+## General Information
 
 This directory contains libufodecode version 0.6. This package provides a
 library to decode frames from the UFO camera developed at IPE/KIT. It is able to
@@ -11,15 +9,13 @@ This package also contains a stand-alone offline decoder called `ipedec` to
 decode raw frames acquired with the `pcitool` program. More information is
 available by calling
 
-  $ ipedec -h
+    $ ipedec -h
 
-Installation
-============
+## Installation
 
 Please see the file called INSTALL.
 
 
-Licensing
-=========
+## Licensing
 
 Please see the file called COPYING.
