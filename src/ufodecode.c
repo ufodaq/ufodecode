@@ -82,14 +82,14 @@ ufo_decoder_new (int32_t height, uint32_t width, uint32_t *raw, size_t num_bytes
     if (width % IPECAMERA_PIXELS_PER_CHANNEL)
         return NULL;
 
-    UfoDecoder *decoder = malloc(sizeof(UfoDecoder));
+    UfoDecoder *decoder = malloc (sizeof(UfoDecoder));
 
     if (decoder == NULL)
         return NULL;
 
     decoder->width = width;
     decoder->height = height;
-    ufo_decoder_set_raw_data(decoder, raw, num_bytes);
+    ufo_decoder_set_raw_data (decoder, raw, num_bytes);
     return decoder;
 }
 
@@ -99,9 +99,9 @@ ufo_decoder_new (int32_t height, uint32_t width, uint32_t *raw, size_t num_bytes
  * \param decoder An UfoDecoder instance
  */
 void
-ufo_decoder_free(UfoDecoder *decoder)
+ufo_decoder_free (UfoDecoder *decoder)
 {
-    free(decoder);
+    free (decoder);
 }
 
 /**
@@ -112,7 +112,7 @@ ufo_decoder_free(UfoDecoder *decoder)
  * \param num_bytes Size of data stream buffer in bytes
  */
 void
-ufo_decoder_set_raw_data(UfoDecoder *decoder, uint32_t *raw, size_t num_bytes)
+ufo_decoder_set_raw_data (UfoDecoder *decoder, uint32_t *raw, size_t num_bytes)
 {
     decoder->raw = raw;
     decoder->num_bytes = num_bytes;
@@ -120,12 +120,7 @@ ufo_decoder_set_raw_data(UfoDecoder *decoder, uint32_t *raw, size_t num_bytes)
 }
 
 static int
-ufo_decode_frame_channels_v5(UfoDecoder     *decoder,
-                             uint16_t       *pixel_buffer,
-                             uint32_t       *raw,
-                             size_t          num_rows,
-                             size_t         *offset,
-                             uint8_t         output_mode)
+ufo_decode_frame_channels_v5 (UfoDecoder *decoder, uint16_t *pixel_buffer, uint32_t *raw, size_t num_rows, size_t *offset, uint8_t output_mode)
 {
     payload_header_v5 *header;
     size_t base = 0, index = 0;
@@ -201,13 +196,14 @@ ufo_decode_frame_channels_v5(UfoDecoder     *decoder,
  * \param width Width of frame in pixels
  * \param height Height of frame in pixels
  */
-void ufo_deinterlace_interpolate(const uint16_t *in, uint16_t *out, int width, int height)
+void
+ufo_deinterlace_interpolate (const uint16_t *in, uint16_t *out, int width, int height)
 {
     const size_t row_size_bytes = width * sizeof(uint16_t);
 
     for (int row = 0; row < height; row++) {
         /* Copy one line */
-        memcpy(out, in + row*width, row_size_bytes);
+        memcpy (out, in + row*width, row_size_bytes);
         out += width;
 
         /* Interpolate between source row and row+1 */
@@ -218,7 +214,7 @@ void ufo_deinterlace_interpolate(const uint16_t *in, uint16_t *out, int width, i
     }
 
     /* Copy last row */
-    memcpy(out, in + width * (height - 1), row_size_bytes);
+    memcpy (out, in + width * (height - 1), row_size_bytes);
 }
 
 /**
@@ -230,13 +226,14 @@ void ufo_deinterlace_interpolate(const uint16_t *in, uint16_t *out, int width, i
  * \param width Width of frame in pixels
  * \param height Height of frame in pixels
  */
-void ufo_deinterlace_weave(const uint16_t *in1, const uint16_t *in2, uint16_t *out, int width, int height)
+void
+ufo_deinterlace_weave (const uint16_t *in1, const uint16_t *in2, uint16_t *out, int width, int height)
 {
     const size_t row_size_bytes = width * sizeof(uint16_t);
     for (int row = 0; row < height; row++) {
-        memcpy(out, in1 + row*width, row_size_bytes);
+        memcpy (out, in1 + row*width, row_size_bytes);
         out += width;
-        memcpy(out, in2 + row*width, row_size_bytes);
+        memcpy (out, in2 + row*width, row_size_bytes);
         out += width;
     }
 }
@@ -256,11 +253,8 @@ void ufo_deinterlace_weave(const uint16_t *in1, const uint16_t *in2, uint16_t *o
  *
  * \return number of decoded bytes or 0 in case of error
  */
-size_t ufo_decoder_decode_frame(UfoDecoder      *decoder,
-                                uint32_t        *raw,
-                                size_t           num_bytes,
-                                uint16_t        *pixels,
-                                UfoDecoderMeta  *meta)
+size_t
+ufo_decoder_decode_frame(UfoDecoder *decoder, uint32_t *raw, size_t num_bytes, uint16_t *pixels, UfoDecoderMeta *meta)
 {
     int err = 0;
     size_t pos = 0;
@@ -339,7 +333,7 @@ size_t ufo_decoder_decode_frame(UfoDecoder      *decoder,
 
     switch (version) {
         case 5:
-            err = ufo_decode_frame_channels_v5(decoder, pixels, raw + pos, rows_per_frame, &advance, meta->output_mode);
+            err = ufo_decode_frame_channels_v5 (decoder, pixels, raw + pos, rows_per_frame, &advance, meta->output_mode);
             break;
         default:
             break;
@@ -387,9 +381,8 @@ size_t ufo_decoder_decode_frame(UfoDecoder      *decoder,
  * NULL was passed but no memory could be allocated, EILSEQ if data stream is
  * corrupt and EFAULT if pixels is a NULL-pointer.
  */
-int ufo_decoder_get_next_frame(UfoDecoder     *decoder,
-                               uint16_t      **pixels,
-                               UfoDecoderMeta *meta)
+int
+ufo_decoder_get_next_frame (UfoDecoder *decoder, uint16_t **pixels, UfoDecoderMeta *meta)
 {
     uint32_t *raw = decoder->raw;
     size_t pos = decoder->current_pos;
@@ -406,7 +399,8 @@ int ufo_decoder_get_next_frame(UfoDecoder     *decoder,
         return EILSEQ;
 
     if (*pixels == NULL) {
-        *pixels = (uint16_t *) malloc(IPECAMERA_WIDTH * decoder->height * sizeof(uint16_t));
+        *pixels = (uint16_t *) malloc (IPECAMERA_WIDTH * decoder->height * sizeof(uint16_t));
+
         if (*pixels == NULL)
             return ENOMEM;
     }
@@ -414,7 +408,7 @@ int ufo_decoder_get_next_frame(UfoDecoder     *decoder,
     while ((pos < num_words) && (raw[pos] != 0x51111111))
         pos++;
 
-    advance = ufo_decoder_decode_frame(decoder, raw + pos, decoder->num_bytes - pos, *pixels, meta);
+    advance = ufo_decoder_decode_frame (decoder, raw + pos, decoder->num_bytes - pos, *pixels, meta);
 
     /*
      * On error, advance is 0 but we have to advance at least a bit to net get
@@ -451,10 +445,8 @@ int ufo_decoder_get_next_frame(UfoDecoder     *decoder,
  * \param width Width of a frame
  * \param height Height of a frame
  */
-void ufo_convert_bayer_to_rgb (const uint16_t *in,
-                               uint8_t *out,
-                               int width,
-                               int height)
+void
+ufo_convert_bayer_to_rgb (const uint16_t *in, uint8_t *out, int width, int height)
 {
     /* According to the CMV docs, the pattern starts at (0,0) with
      *
