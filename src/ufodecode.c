@@ -25,6 +25,13 @@
 #define IPECAMERA_MODE_10_BIT_ADC	0
 
 typedef struct {
+    unsigned no_ext_header : 1;
+    unsigned version: 3;
+    unsigned ones : 24;
+    unsigned five: 4;
+} pre_header_t;
+
+typedef struct {
     unsigned int pixel_number : 8;
     unsigned int row_number : 12;
     unsigned int pixel_size : 4;
@@ -260,12 +267,18 @@ ufo_decoder_decode_frame(UfoDecoder *decoder, uint32_t *raw, size_t num_bytes, u
     size_t pos = 0;
     size_t advance = 0;
     const size_t num_words = num_bytes / 4;
+    const pre_header_t *pre_header;
 
     if ((pixels == NULL) || (num_words < 16))
         return 0;
 
+    pre_header = (pre_header_t *) raw;
+
+    CHECK_VALUE(pre_header->five, 0x5);
+    CHECK_VALUE(pre_header->ones, 0x111111);
+
     size_t rows_per_frame = decoder->height;
-    const int version = (raw[pos+6] >> 24) & 0xF;
+    const int version = pre_header->version + 5;    /* it starts with 0 */
 
 #ifdef DEBUG
     CHECK_VALUE(raw[pos++], 0x51111111);
