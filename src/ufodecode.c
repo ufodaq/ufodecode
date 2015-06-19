@@ -49,6 +49,23 @@ typedef struct {
 } header_v5_t;
 
 typedef struct {
+    uint32_t magic_3;
+    uint32_t magic_4;
+    unsigned cmosis_start_address : 16;
+    unsigned adc_resolution : 4;
+    unsigned output_mode : 4;
+    unsigned five_1 : 4;
+    unsigned n_rows : 16;
+    unsigned n_skipped_rows : 12;
+    unsigned five_2 : 4;
+    unsigned frame_number : 24;
+    unsigned dataformat_version : 4;
+    unsigned five_3 : 4;
+    unsigned timestamp : 28;
+    unsigned five_4 : 4;
+} header_v6_t;
+
+typedef struct {
     unsigned int pixel_number : 8;
     unsigned int row_number : 12;
     unsigned int pixel_size : 4;
