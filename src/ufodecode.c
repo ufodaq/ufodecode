@@ -10,8 +10,6 @@
 #include <xmmintrin.h>
 #endif
 
-#define CHECKS
-
 #define IPECAMERA_NUM_ROWS              1088
 #define IPECAMERA_NUM_CHANNELS          16      /**< Number of channels per row */
 #define IPECAMERA_PIXELS_PER_CHANNEL    128     /**< Number of pixels per channel */
@@ -30,6 +28,25 @@ typedef struct {
     unsigned ones : 24;
     unsigned five: 4;
 } pre_header_t;
+
+typedef struct {
+    uint32_t magic_2;
+    uint32_t magic_3;
+    uint32_t magic_4;
+    uint32_t magic_5;
+    unsigned n_rows : 11;
+    unsigned n_skipped_rows : 7;
+    unsigned cmosis_start_address : 10;
+    unsigned five_1 : 4;
+    unsigned frame_number : 24;
+    unsigned dataformat_version : 4;
+    unsigned five_2 : 4;
+    unsigned timestamp : 24;
+    unsigned zero_1 : 2;
+    unsigned output_mode : 2;
+    unsigned zero_2 : 2;
+    unsigned adc_resolution : 2;
+} header_v5_t;
 
 typedef struct {
     unsigned int pixel_number : 8;
@@ -261,95 +278,70 @@ ufo_deinterlace_weave (const uint16_t *in1, const uint16_t *in2, uint16_t *out, 
  * \return number of decoded bytes or 0 in case of error
  */
 size_t
-ufo_decoder_decode_frame(UfoDecoder *decoder, uint32_t *raw, size_t num_bytes, uint16_t *pixels, UfoDecoderMeta *meta)
+ufo_decoder_decode_frame (UfoDecoder *decoder, uint32_t *raw, size_t num_bytes, uint16_t *pixels, UfoDecoderMeta *meta)
 {
     int err = 0;
     size_t pos = 0;
     size_t advance = 0;
     const size_t num_words = num_bytes / 4;
+    size_t rows_per_frame = decoder->height;
     const pre_header_t *pre_header;
+    const header_v5_t *v5_header;
 
     if ((pixels == NULL) || (num_words < 16))
         return 0;
 
     pre_header = (pre_header_t *) raw;
 
-    CHECK_VALUE(pre_header->five, 0x5);
-    CHECK_VALUE(pre_header->ones, 0x111111);
+    CHECK_VALUE (pre_header->five, 0x5);
+    CHECK_VALUE (pre_header->ones, 0x111111);
 
-    size_t rows_per_frame = decoder->height;
     const int version = pre_header->version + 5;    /* it starts with 0 */
 
+    v5_header = (header_v5_t *) &raw[pos + 1];
+
+    CHECK_VALUE (v5_header->magic_2, 0x52222222);
+    CHECK_VALUE (v5_header->magic_3, 0x53333333);
+    CHECK_VALUE (v5_header->magic_4, 0x54444444);
+    CHECK_VALUE (v5_header->magic_5, 0x55555555);
+
+    CHECK_VALUE (v5_header->five_1, 0x5);
+    CHECK_VALUE (v5_header->five_2, 0x5);
+
+    meta->time_stamp = v5_header->timestamp;
+    meta->cmosis_start_address = v5_header->cmosis_start_address;
+    meta->frame_number = v5_header->frame_number;
+    meta->n_rows = v5_header->n_rows;
+    meta->n_skipped_rows = v5_header->n_skipped_rows;
+
 #ifdef DEBUG
-    CHECK_VALUE(raw[pos++], 0x51111111);
-    CHECK_VALUE(raw[pos++], 0x52222222);
-    CHECK_VALUE(raw[pos++], 0x53333333);
-    CHECK_VALUE(raw[pos++], 0x54444444);
-    CHECK_VALUE(raw[pos++], 0x55555555);
-
-    switch (version) {
-        case 5:
-            CHECK_VALUE(raw[pos] >> 28, 0x5);
-            meta->cmosis_start_address = (raw[pos] >> 21) & 0x1FF;
-            meta->n_skipped_rows = (raw[pos] >> 15) & 0x3F;
-            meta->n_rows = rows_per_frame = raw[pos] & 0x7FF;
-            pos++;
-
-            meta->frame_number = raw[pos++] & 0x1FFFFFF;
-            CHECK_VALUE(raw[pos] >> 28, 0x5);
-            meta->time_stamp = raw[pos] & 0xFFFFFF;
-            meta->output_mode = (raw[pos] >> 24) & 0x3;
-            meta->adc_resolution = (raw[pos] >> 26) & 0x3;
-            pos++;
-
-            if ((meta->output_mode != IPECAMERA_MODE_4_CHAN_IO) && (meta->output_mode != IPECAMERA_MODE_16_CHAN_IO)) {
-                fprintf(stderr, "Output mode 0x%x is not supported\n", meta->output_mode);
-                return EILSEQ;
-            }
-            break;
-
-        default:
-            fprintf(stderr, "Unsupported data format version %i detected\n", version);
-            return 0;
+    if ((meta->output_mode != IPECAMERA_MODE_4_CHAN_IO) && (meta->output_mode != IPECAMERA_MODE_16_CHAN_IO)) {
+        fprintf (stderr, "Output mode 0x%x is not supported\n", meta->output_mode);
+        return EILSEQ;
     }
 
     if (err) {
-        fprintf(stderr, "Corrupt data:");
+        fprintf (stderr, "Corrupt data:");
 
         for (int i = 0; i < pos; i++) {
             if ((i % 8) == 0)
-                fprintf(stderr, "\n");
+                fprintf (stderr, "\n");
 
-            fprintf(stderr, " %#08x", raw[i]);
+            fprintf (stderr, " %#08x", raw[i]);
         }
 
-        fprintf(stderr, "\n");
+        fprintf (stderr, "\n");
         return 0;
     }
-#else
-    switch (version) {
-        case 5:
-            meta->n_rows = rows_per_frame = raw[pos + 5] & 0x7FF;
-            meta->frame_number = raw[pos + 6] & 0x1FFFFFF;
-            meta->time_stamp = raw[pos + 7] & 0xFFFFFF;
-            meta->output_mode = (raw[pos + 7] >> 24) & 0x3;
-            meta->adc_resolution = (raw[pos + 7] >> 26) & 0x3;
-
-            break;
-        default:
-            fprintf(stderr, "Unsupported data format detected\n");
-            return 0;
-    }
-
-    pos += 8;
 #endif
 
-    switch (version) {
-        case 5:
-            err = ufo_decode_frame_channels_v5 (decoder, pixels, raw + pos, rows_per_frame, &advance, meta->output_mode);
-            break;
-        default:
-            break;
+    pos += 8;
+
+    if (version == 5) {
+        err = ufo_decode_frame_channels_v5 (decoder, pixels, raw + pos, rows_per_frame, &advance, meta->output_mode);
+    }
+    else {
+        fprintf (stderr, "Data format version %i unsupported\n", version);
     }
 
     if (err)
@@ -357,22 +349,22 @@ ufo_decoder_decode_frame(UfoDecoder *decoder, uint32_t *raw, size_t num_bytes, u
 
     pos += advance;
 
-#ifdef CHECKS
-    CHECK_VALUE(raw[pos++], 0x0AAAAAAA);
+    CHECK_VALUE(raw[pos], 0x0AAAAAAA);
+    pos++;
 
     meta->status1.bits = raw[pos++];
     meta->status2.bits = raw[pos++];
     meta->status3.bits = raw[pos++];
+    pos += 2;
+
+    CHECK_VALUE(raw[pos], 0x00000000);
     pos++;
+
+    CHECK_VALUE(raw[pos], 0x01111111);
     pos++;
-    CHECK_VALUE(raw[pos++], 0x00000000);
-    CHECK_VALUE(raw[pos++], 0x01111111);
 
     if (err)
         return 0;
-#else
-    pos += 8;
-#endif
 
     return pos;
 }
