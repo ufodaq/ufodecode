@@ -8,13 +8,14 @@
 #include <ufodecode.h>
 #include "timer.h"
 
-static const int MAX_ROWS = 2048;
+static const int MAX_ROWS = 3840;
 
 typedef struct {
     int clear_frame;
     int dry_run;
     int verbose;
-    int rows;
+    int num_rows;
+    int num_columns;
     int print_frame_rate;
     int print_num_rows;
     int cont;
@@ -56,7 +57,8 @@ usage(void)
 Options:\n\
   -h, --help                Show this help message and exit\n\
   -v, --verbose             Print additional information on STDOUT\n\
-  -r, --num-rows=N          N rows that are contained in the file\n\
+  -r, --num-rows=N          N rows contained in the file\n\
+      --num-columns=N       N columns contained in the file\n\
   -c, --clear-frame         Clear the frame for each iteration\n\
   -d, --dry-run             Do not save the frames\n\
   -f, --print-frame-rate    Print frame rate on STDOUT\n\
@@ -113,14 +115,14 @@ write_raw_file (UfoDecoderMeta *meta,
     size_t n_rows = meta->n_rows;
 
     if (opts->convert_bayer) {
-        uint8_t *rgb_pixels = malloc (2048 * n_rows * 3);
+        uint8_t *rgb_pixels = malloc (opts->num_columns * n_rows * 3);
 
-        ufo_convert_bayer_to_rgb (pixels, rgb_pixels, 2048, n_rows);
-        fwrite (rgb_pixels, sizeof(uint8_t), 2048 * n_rows * 3, fp);
+        ufo_convert_bayer_to_rgb (pixels, rgb_pixels, opts->num_columns, n_rows);
+        fwrite (rgb_pixels, sizeof(uint8_t), opts->num_columns * n_rows * 3, fp);
         free (rgb_pixels);
     }
     else {
-        fwrite(pixels, sizeof(uint16_t), 2048 * n_rows, fp);
+        fwrite(pixels, sizeof(uint16_t), opts->num_columns * n_rows, fp);
     }
 }
 
@@ -140,14 +142,14 @@ process_file(const char *filename, Options *opts)
     char             output_name[256];
     float            mtime;
 
-    error = read_raw_file(filename, &buffer, &num_bytes);
+    error = read_raw_file (filename, &buffer, &num_bytes);
 
     if (error) {
         fprintf(stderr, "Error reading %s: %s\n", filename, strerror(error));
         return error;
     }
 
-    decoder = ufo_decoder_new(opts->rows, 2048, (uint32_t *) buffer, num_bytes);
+    decoder = ufo_decoder_new (opts->num_rows, opts->num_columns, (uint32_t *) buffer, num_bytes);
 
     if (decoder == NULL) {
         fprintf(stderr, "Failed to initialize decoder\n");
@@ -165,7 +167,7 @@ process_file(const char *filename, Options *opts)
     }
 
     timer = timer_new ();
-    pixels = (uint16_t *) malloc (2048 * MAX_ROWS * sizeof(uint16_t));
+    pixels = (uint16_t *) malloc (opts->num_columns * opts->num_rows * sizeof(uint16_t));
     n_frames = 0;
     old_time_stamp = 0;
 
@@ -174,7 +176,7 @@ process_file(const char *filename, Options *opts)
         error = ufo_decoder_get_next_frame (decoder, &pixels, &meta);
 
         if (meta.n_rows == 0)
-            meta.n_rows = opts->rows;
+            meta.n_rows = opts->num_rows;
 
         timer_stop (timer);
 
@@ -194,13 +196,13 @@ process_file(const char *filename, Options *opts)
             }
 
             if (opts->print_num_rows)
-                printf("%d", meta.n_rows); 
+                printf ("%d", meta.n_rows);
 
             if (opts->print_frame_rate || opts->print_num_rows)
-                printf("\n");
+                printf ("\n");
 
             if (opts->clear_frame)
-                memset(pixels, 0, 2048 * meta.n_rows * sizeof(uint16_t));
+                memset (pixels, 0, opts->num_columns * meta.n_rows * sizeof(uint16_t));
 
             if (!opts->dry_run)
                 write_raw_file (&meta, opts, pixels, fp);
@@ -243,15 +245,17 @@ int main(int argc, char const* argv[])
         DRY_RUN      = 'd',
         FRAME_RATE   = 'f',
         HELP         = 'h',
-        SET_NUM_ROWS = 'r', 
+        SET_NUM_ROWS = 'r',
         VERBOSE      = 'v',
         CONTINUE,
         NUM_ROWS,
+        SET_NUM_COLUMNS,
         CONVERT_BAYER,
     };
 
     static struct option long_options[] = {
         { "num-rows",           required_argument, 0, SET_NUM_ROWS },
+        { "num-columns",        required_argument, 0, SET_NUM_COLUMNS },
         { "clear-frame",        no_argument, 0, CLEAR_FRAME },
         { "verbose",            no_argument, 0, VERBOSE },
         { "help",               no_argument, 0, HELP },
@@ -264,7 +268,8 @@ int main(int argc, char const* argv[])
     };
 
     static Options opts = {
-        .rows = 1088,
+        .num_rows = 1088,
+        .num_columns = 2048,
         .verbose = 0,
         .dry_run = 0,
         .clear_frame = 0,
@@ -277,7 +282,10 @@ int main(int argc, char const* argv[])
     while ((getopt_ret = getopt_long(argc, (char *const *) argv, "r:cvhdf", long_options, &index)) != -1) {
         switch (getopt_ret) {
             case SET_NUM_ROWS:
-                opts.rows = atoi(optarg);
+                opts.num_rows = atoi(optarg);
+                break;
+            case SET_NUM_COLUMNS:
+                opts.num_columns = atoi(optarg);
                 break;
             case CLEAR_FRAME:
                 opts.clear_frame = 1;

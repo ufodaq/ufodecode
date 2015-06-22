@@ -15,6 +15,8 @@
 #define IPECAMERA_PIXELS_PER_CHANNEL    128     /**< Number of pixels per channel */
 #define IPECAMERA_WIDTH (IPECAMERA_NUM_CHANNELS * IPECAMERA_PIXELS_PER_CHANNEL) /**< Total pixel width of row */
 
+#define IPECAMERA_WIDTH_20MP            5120
+
 #define IPECAMERA_MODE_16_CHAN_IO	0
 #define IPECAMERA_MODE_4_CHAN_IO	2
 
@@ -49,11 +51,12 @@ typedef struct {
 } header_v5_t;
 
 typedef struct {
+    uint32_t magic_2;
     uint32_t magic_3;
     uint32_t magic_4;
     unsigned cmosis_start_address : 16;
-    unsigned adc_resolution : 4;
     unsigned output_mode : 4;
+    unsigned adc_resolution : 4;
     unsigned five_1 : 4;
     unsigned n_rows : 16;
     unsigned n_skipped_rows : 12;
@@ -66,12 +69,11 @@ typedef struct {
 } header_v6_t;
 
 typedef struct {
-    unsigned int pixel_number : 8;
-    unsigned int row_number : 12;
-    unsigned int pixel_size : 4;
-    unsigned int magic : 8;
+    unsigned pixel_number : 8;
+    unsigned row_number : 12;
+    unsigned pixel_size : 4;
+    unsigned magic : 8;
 } payload_header_v5;
-
 
 /**
  * Check if value matches expected input.
@@ -166,8 +168,6 @@ ufo_decode_frame_channels_v5 (UfoDecoder *decoder, uint16_t *pixel_buffer, uint3
     payload_header_v5 *header;
     size_t base = 0, index = 0;
 
-    header = (payload_header_v5 *) &raw[base];
-
     if (output_mode == IPECAMERA_MODE_4_CHAN_IO) {
         size_t off = 0;
 
@@ -223,6 +223,47 @@ ufo_decode_frame_channels_v5 (UfoDecoder *decoder, uint16_t *pixel_buffer, uint3
 
             base += 6;
         }
+    }
+
+    *offset = base;
+    return 0;
+}
+
+static int
+ufo_decode_frame_channels_v6 (UfoDecoder *decoder, uint16_t *pixel_buffer, uint32_t *raw, size_t num_rows, size_t *offset, uint8_t output_mode)
+{
+    size_t base = 0;
+    size_t index = 0;
+    const size_t space = 640;
+
+    while (raw[base] != 0xAAAAAAA) {
+        const size_t row_number = raw[base] & 0xfff;
+        const size_t pixel_number = (raw[base + 1] >> 16) & 0xfff;
+
+        base += 2;
+
+        index = row_number * IPECAMERA_WIDTH_20MP + pixel_number;
+
+        pixel_buffer[index + 0 * space] = (raw[base] >> 20);
+        pixel_buffer[index + 1 * space] = (raw[base] >> 8) & 0xfff;
+        pixel_buffer[index + 2 * space] = ((raw[base] << 4) & 0xff) | ((raw[base + 1] >> 28) & 0xff);
+        pixel_buffer[index + 3 * space] = (raw[base + 1] >> 16) & 0xfff;
+        pixel_buffer[index + 4 * space] = (raw[base + 1] >> 4) & 0xfff;
+        pixel_buffer[index + 5 * space] = ((raw[base + 1] << 8) & 0xfff) | (raw[base + 2] >> 24);
+        pixel_buffer[index + 6 * space] = (raw[base + 2] >> 12) & 0xfff;
+        pixel_buffer[index + 7 * space] = raw[base + 2] & 0xfff;
+
+        index += IPECAMERA_WIDTH_20MP;
+        pixel_buffer[index + 0 * space] = (raw[base + 3] >> 20);
+        pixel_buffer[index + 1 * space] = (raw[base + 3] >> 8) & 0xfff;
+        pixel_buffer[index + 2 * space] = ((raw[base + 3] << 4) & 0xfff) | (raw[base + 4] >> 28);
+        pixel_buffer[index + 3 * space] = (raw[base + 4] >> 16) & 0xfff;
+        pixel_buffer[index + 4 * space] = (raw[base + 4] >> 4) & 0xfff;
+        pixel_buffer[index + 5 * space] = ((raw[base + 4] << 8) & 0xfff) | (raw[base + 5] >> 24);
+        pixel_buffer[index + 6 * space] = (raw[base + 5] >> 12) & 0xfff;
+        pixel_buffer[index + 7 * space] = (raw[base + 5] & 0xfff);
+
+        base += 6;
     }
 
     *offset = base;
@@ -303,7 +344,6 @@ ufo_decoder_decode_frame (UfoDecoder *decoder, uint32_t *raw, size_t num_bytes, 
     const size_t num_words = num_bytes / 4;
     size_t rows_per_frame = decoder->height;
     const pre_header_t *pre_header;
-    const header_v5_t *v5_header;
 
     if ((pixels == NULL) || (num_words < 16))
         return 0;
@@ -313,23 +353,54 @@ ufo_decoder_decode_frame (UfoDecoder *decoder, uint32_t *raw, size_t num_bytes, 
     CHECK_VALUE (pre_header->five, 0x5);
     CHECK_VALUE (pre_header->ones, 0x111111);
 
-    const int version = pre_header->version + 5;    /* it starts with 0 */
+    const int header_version = pre_header->version + 5;    /* it starts with 0 */
+    int dataformat_version = 5;      /* will overwrite for header_version >= 6 */
 
-    v5_header = (header_v5_t *) &raw[pos + 1];
+    switch (header_version) {
+        case 5:
+            {
+                const header_v5_t *header = (header_v5_t *) &raw[pos + 1];
 
-    CHECK_VALUE (v5_header->magic_2, 0x52222222);
-    CHECK_VALUE (v5_header->magic_3, 0x53333333);
-    CHECK_VALUE (v5_header->magic_4, 0x54444444);
-    CHECK_VALUE (v5_header->magic_5, 0x55555555);
+                CHECK_VALUE (header->magic_2, 0x52222222);
+                CHECK_VALUE (header->magic_3, 0x53333333);
+                CHECK_VALUE (header->magic_4, 0x54444444);
+                CHECK_VALUE (header->magic_5, 0x55555555);
 
-    CHECK_VALUE (v5_header->five_1, 0x5);
-    CHECK_VALUE (v5_header->five_2, 0x5);
+                CHECK_VALUE (header->five_1, 0x5);
+                CHECK_VALUE (header->five_2, 0x5);
 
-    meta->time_stamp = v5_header->timestamp;
-    meta->cmosis_start_address = v5_header->cmosis_start_address;
-    meta->frame_number = v5_header->frame_number;
-    meta->n_rows = v5_header->n_rows;
-    meta->n_skipped_rows = v5_header->n_skipped_rows;
+                meta->time_stamp = header->timestamp;
+                meta->cmosis_start_address = header->cmosis_start_address;
+                meta->frame_number = header->frame_number;
+                meta->n_rows = header->n_rows;
+                meta->n_skipped_rows = header->n_skipped_rows;
+                break;
+            }
+
+        case 6:
+            {
+                const header_v6_t *header = (header_v6_t *) &raw[pos + 1];
+                CHECK_VALUE (header->magic_2, 0x52222222);
+                CHECK_VALUE (header->magic_3, 0x53333333);
+                CHECK_VALUE (header->magic_4, 0x54444444);
+
+                dataformat_version = header->dataformat_version;
+
+                meta->output_mode = header->output_mode;
+                meta->adc_resolution = header->adc_resolution;
+                meta->time_stamp = header->timestamp;
+                meta->cmosis_start_address = header->cmosis_start_address;
+                meta->frame_number = header->frame_number;
+                meta->n_rows = header->n_rows;
+                meta->n_skipped_rows = header->n_skipped_rows;
+
+                break;
+            }
+
+        default:
+            fprintf (stderr, "Unsupported header version %i\n", header_version);
+    }
+
 
 #ifdef DEBUG
     if ((meta->output_mode != IPECAMERA_MODE_4_CHAN_IO) && (meta->output_mode != IPECAMERA_MODE_16_CHAN_IO)) {
@@ -354,11 +425,17 @@ ufo_decoder_decode_frame (UfoDecoder *decoder, uint32_t *raw, size_t num_bytes, 
 
     pos += 8;
 
-    if (version == 5) {
-        err = ufo_decode_frame_channels_v5 (decoder, pixels, raw + pos, rows_per_frame, &advance, meta->output_mode);
-    }
-    else {
-        fprintf (stderr, "Data format version %i unsupported\n", version);
+    switch (dataformat_version) {
+        case 5:
+            err = ufo_decode_frame_channels_v5 (decoder, pixels, raw + pos, rows_per_frame, &advance, meta->output_mode);
+            break;
+
+        case 6:
+            err = ufo_decode_frame_channels_v6 (decoder, pixels, raw + pos, rows_per_frame, &advance, meta->output_mode);
+            break;
+
+        default:
+            fprintf (stderr, "Data format version %i unsupported\n", dataformat_version);
     }
 
     if (err)
@@ -427,7 +504,8 @@ ufo_decoder_get_next_frame (UfoDecoder *decoder, uint16_t **pixels, UfoDecoderMe
             return ENOMEM;
     }
 
-    while ((pos < num_words) && (raw[pos] != 0x51111111))
+    while ((pos < num_words) &&
+           ((raw[pos] & 0xFFFFFFF0) != 0x51111110)) /* we can only match the first part */
         pos++;
 
     advance = ufo_decoder_decode_frame (decoder, raw + pos, decoder->num_bytes - pos, *pixels, meta);
