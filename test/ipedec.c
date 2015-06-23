@@ -8,7 +8,7 @@
 #include <ufodecode.h>
 #include "timer.h"
 
-static const int MAX_ROWS = 3840;
+static const int MAX_ROWS = 3841;
 
 typedef struct {
     int clear_frame;
@@ -167,7 +167,7 @@ process_file(const char *filename, Options *opts)
     }
 
     timer = timer_new ();
-    pixels = (uint16_t *) malloc (opts->num_columns * opts->num_rows * sizeof(uint16_t));
+    pixels = (uint16_t *) malloc (opts->num_columns * MAX_ROWS * sizeof(uint16_t));
     n_frames = 0;
     old_time_stamp = 0;
 
