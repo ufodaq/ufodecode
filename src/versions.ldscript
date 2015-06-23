@@ -1,9 +1,0 @@
-libipe_0.1 {
-    global:
-        ipe_decoder ipe_decoder_new;
-        ipe_decoder_free;
-        ipe_decoder_set_raw_data;
-        ipe_decoder_next_frame;
-    local:
-        *;
-};
