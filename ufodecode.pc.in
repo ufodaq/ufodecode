@@ -1,10 +1,10 @@
-prefix=${CMAKE_INSTALL_PREFIX}
-exec_prefix=${BIN_INSTALL_DIR}
-libdir=${LIB_INSTALL_DIR}
-includedir=${INCLUDE_INSTALL_DIR}
+prefix=@LIBUFODECODE_PREFIX@
+exec_prefix=@LIBUFODECODE_EPREFIX@
+libdir=@LIBUFODECODE_LIBDIR@
+includedir=@LIBUFODECODE_INCLUDEDIR@
 
-Name: ${TARNAME}
+Name: libufodecode
 Description: Decoding routines for the UFO camera
-Version: ${PACKAGE_VERSION}
-Libs: -L${LIB_INSTALL_DIR} -lufodecode
-Cflags: -I${INCLUDE_INSTALL_DIR}
+Version: @LIBUFODECODE_VERSION@
+Libs: -L@LIBUFODECODE_LIBDIR@ -lufodecode
+Cflags: -I@LIBUFODECODE_INCLUDEDIR@

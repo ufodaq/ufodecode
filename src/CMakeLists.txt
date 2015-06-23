@@ -31,6 +31,9 @@ include_directories(
     ${CMAKE_CURRENT_BINARY_DIR}
 )
 
+configure_file("config.h.in"
+               "${CMAKE_CURRENT_BINARY_DIR}/config.h")
+
 add_definitions("--std=c99 -Wall -O2 ${SSE_FLAGS}")
 
 add_library(ufodecode SHARED ufodecode.c)
@@ -41,17 +44,10 @@ set_target_properties(ufodecode PROPERTIES
 )
 
 install(TARGETS ufodecode
-    LIBRARY DESTINATION lib${LIB_SUFFIX}
+    LIBRARY DESTINATION ${LIBUFODECODE_LIBDIR}
 )
 
 install(FILES
     ufodecode.h
-    DESTINATION include
+    DESTINATION ${LIBUFODECODE_INCLUDEDIR}
 )
-
-if ("${CMAKE_BUILD_TYPE}" MATCHES "Debug")
-    set(DEBUG "1")
-endif()
-
-configure_file(config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
-

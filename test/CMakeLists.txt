@@ -11,10 +11,8 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/src 
 )
 
-add_executable(ipedec
-               ipedec.c
-               timer.c)
+add_executable(ipedec ipedec.c timer.c)
 
 target_link_libraries(ipedec ufodecode)
 
-install(TARGETS ipedec DESTINATION ${BIN_INSTALL_DIR})
+install(TARGETS ipedec DESTINATION ${LIBUFODECODE_BINDIR})
