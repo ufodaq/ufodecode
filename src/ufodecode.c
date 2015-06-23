@@ -237,7 +237,7 @@ ufo_decode_frame_channels_v6 (UfoDecoder *decoder, uint16_t *pixel_buffer, uint3
     const size_t space = 640;
 #ifdef HAVE_SSE
     const __m64 mask_fff = _mm_set_pi32 (0xfff, 0xfff);
-    __m64 mm_r, src1, src2, src3;
+    __m64 mm_r;
     uint32_t *result;
 
     result = (uint32_t *) &mm_r;
@@ -251,9 +251,9 @@ ufo_decode_frame_channels_v6 (UfoDecoder *decoder, uint16_t *pixel_buffer, uint3
         index = row_number * IPECAMERA_WIDTH_20MP + pixel_number;
 
 #ifdef HAVE_SSE
-        src1 = _mm_set_pi32 (raw[base], raw[base + 3]);
-        src2 = _mm_set_pi32 (raw[base + 1], raw[base + 4]);
-        src3 = _mm_set_pi32 (raw[base + 2], raw[base + 5]);
+        const __m64 src1 = _mm_set_pi32 (raw[base], raw[base + 3]);
+        const __m64 src2 = _mm_set_pi32 (raw[base + 1], raw[base + 4]);
+        const __m64 src3 = _mm_set_pi32 (raw[base + 2], raw[base + 5]);
 
         mm_r = _mm_srli_pi32 (src1, 20);
         pixel_buffer[index + 0 * space] = result[0];
