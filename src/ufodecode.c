@@ -162,8 +162,8 @@ ufo_decoder_set_raw_data (UfoDecoder *decoder, uint32_t *raw, size_t num_bytes)
     decoder->current_pos = 0;
 }
 
-static int
-ufo_decode_frame_channels_v5 (UfoDecoder *decoder, uint16_t *pixel_buffer, uint32_t *raw, size_t num_rows, size_t *offset, uint8_t output_mode)
+static size_t
+ufo_decode_frame_channels_v5 (UfoDecoder *decoder, uint16_t *pixel_buffer, uint32_t *raw, size_t num_rows, uint8_t output_mode)
 {
     payload_header_v5 *header;
     size_t base = 0, index = 0;
@@ -225,12 +225,11 @@ ufo_decode_frame_channels_v5 (UfoDecoder *decoder, uint16_t *pixel_buffer, uint3
         }
     }
 
-    *offset = base;
-    return 0;
+    return base;
 }
 
-static int
-ufo_decode_frame_channels_v6 (UfoDecoder *decoder, uint16_t *pixel_buffer, uint32_t *raw, size_t num_rows, size_t *offset, uint8_t output_mode)
+static size_t
+ufo_decode_frame_channels_v6 (UfoDecoder *decoder, uint16_t *pixel_buffer, uint32_t *raw, size_t num_rows)
 {
     size_t base = 0;
     size_t index = 0;
@@ -310,8 +309,7 @@ ufo_decode_frame_channels_v6 (UfoDecoder *decoder, uint16_t *pixel_buffer, uint3
         base += 6;
     }
 
-    *offset = base;
-    return 0;
+    return base;
 }
 
 /**
@@ -471,11 +469,11 @@ ufo_decoder_decode_frame (UfoDecoder *decoder, uint32_t *raw, size_t num_bytes, 
 
     switch (dataformat_version) {
         case 5:
-            err = ufo_decode_frame_channels_v5 (decoder, pixels, raw + pos, rows_per_frame, &advance, meta->output_mode);
+            advance = ufo_decode_frame_channels_v5 (decoder, pixels, raw + pos, rows_per_frame, meta->output_mode);
             break;
 
         case 6:
-            err = ufo_decode_frame_channels_v6 (decoder, pixels, raw + pos, rows_per_frame, &advance, meta->output_mode);
+            advance = ufo_decode_frame_channels_v6 (decoder, pixels, raw + pos, rows_per_frame);
             break;
 
         default:
