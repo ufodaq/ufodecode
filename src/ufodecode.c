@@ -234,12 +234,10 @@ ufo_decode_frame_channels_v6 (UfoDecoder *decoder, uint16_t *pixel_buffer, uint3
     size_t base = 0;
     size_t index = 0;
     const size_t space = 640;
+
 #ifdef HAVE_SSE
     const __m64 mask_fff = _mm_set_pi32 (0xfff, 0xfff);
     __m64 mm_r;
-    uint32_t *result;
-
-    result = (uint32_t *) &mm_r;
 #endif
 
     while (raw[base] != 0xAAAAAAA) {
@@ -254,37 +252,33 @@ ufo_decode_frame_channels_v6 (UfoDecoder *decoder, uint16_t *pixel_buffer, uint3
         const __m64 src2 = _mm_set_pi32 (raw[base + 1], raw[base + 4]);
         const __m64 src3 = _mm_set_pi32 (raw[base + 2], raw[base + 5]);
 
+#define store(i) \
+        pixel_buffer[index + i * space] = ((uint32_t *) &mm_r)[0]; \
+        pixel_buffer[index + IPECAMERA_WIDTH_20MP + i * space] = ((uint32_t *) &mm_r)[1];
+
         mm_r = _mm_srli_pi32 (src1, 20);
-        pixel_buffer[index + 0 * space] = result[0];
-        pixel_buffer[index + IPECAMERA_WIDTH_20MP + 0 * space] = result[1];
+        store(0);
 
         mm_r = _mm_and_si64 (_mm_srli_pi32 (src1, 8), mask_fff);
-        pixel_buffer[index + 1 * space] = result[0];
-        pixel_buffer[index + IPECAMERA_WIDTH_20MP + 1 * space] = result[1];
+        store(1);
 
         mm_r = _mm_or_si64 (_mm_and_si64 (_mm_slli_pi32 (src1, 4), mask_fff), _mm_srli_pi32 (src2, 28));
-        pixel_buffer[index + 2 * space] = result[0];
-        pixel_buffer[index + IPECAMERA_WIDTH_20MP + 2 * space] = result[1];
+        store(2);
 
         mm_r = _mm_and_si64 (_mm_srli_pi32 (src2, 16), mask_fff);
-        pixel_buffer[index + 3 * space] = result[0];
-        pixel_buffer[index + IPECAMERA_WIDTH_20MP + 3 * space] = result[1];
+        store(3);
 
         mm_r = _mm_and_si64 (_mm_srli_pi32 (src2, 4), mask_fff);
-        pixel_buffer[index + 4 * space] = result[0];
-        pixel_buffer[index + IPECAMERA_WIDTH_20MP + 4 * space] = result[1];
+        store(4);
 
         mm_r = _mm_or_si64 (_mm_and_si64 (_mm_slli_pi32 (src2, 8), mask_fff), _mm_srli_pi32 (src3, 24));
-        pixel_buffer[index + 5 * space] = result[0];
-        pixel_buffer[index + IPECAMERA_WIDTH_20MP + 5 * space] = result[1];
+        store(5);
 
         mm_r = _mm_and_si64 (_mm_srli_pi32 (src3, 12), mask_fff);
-        pixel_buffer[index + 6 * space] = result[0];
-        pixel_buffer[index + IPECAMERA_WIDTH_20MP + 6 * space] = result[1];
+        store(6);
 
         mm_r = _mm_and_si64 (src3, mask_fff);
-        pixel_buffer[index + 7 * space] = result[0];
-        pixel_buffer[index + IPECAMERA_WIDTH_20MP + 7 * space] = result[1];
+        store(7);
 #else
         pixel_buffer[index + 0 * space] = (raw[base] >> 20);
         pixel_buffer[index + 1 * space] = (raw[base] >> 8) & 0xfff;
