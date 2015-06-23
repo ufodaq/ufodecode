@@ -253,8 +253,8 @@ ufo_decode_frame_channels_v6 (UfoDecoder *decoder, uint16_t *pixel_buffer, uint3
         const __m64 src3 = _mm_set_pi32 (raw[base + 2], raw[base + 5]);
 
 #define store(i) \
-        pixel_buffer[index + i * space] = ((uint32_t *) &mm_r)[0]; \
-        pixel_buffer[index + IPECAMERA_WIDTH_20MP + i * space] = ((uint32_t *) &mm_r)[1];
+        pixel_buffer[index + i * space] = ((uint32_t *) &mm_r)[1]; \
+        pixel_buffer[index + IPECAMERA_WIDTH_20MP + i * space] = ((uint32_t *) &mm_r)[0];
 
         mm_r = _mm_srli_pi32 (src1, 20);
         store(0);
@@ -279,6 +279,8 @@ ufo_decode_frame_channels_v6 (UfoDecoder *decoder, uint16_t *pixel_buffer, uint3
 
         mm_r = _mm_and_si64 (src3, mask_fff);
         store(7);
+
+#undef store
 #else
         pixel_buffer[index + 0 * space] = (raw[base] >> 20);
         pixel_buffer[index + 1 * space] = (raw[base] >> 8) & 0xfff;
