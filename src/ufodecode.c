@@ -303,6 +303,10 @@ ufo_decode_frame_channels_v6 (UfoDecoder *decoder, uint16_t *pixel_buffer, uint3
 #endif
 
         base += 6;
+
+        if ((raw[base] & 0xFF000000) == 0xC0000000) {
+            base += 8;
+        }
     }
 
     return base;

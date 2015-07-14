@@ -8,7 +8,7 @@
 #include <ufodecode.h>
 #include "timer.h"
 
-static const int MAX_ROWS = 3841;
+static const int MAX_ROWS = 3842;
 
 typedef struct {
     int clear_frame;
