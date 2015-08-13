@@ -424,7 +424,6 @@ ufo_decoder_decode_frame (UfoDecoder *decoder, uint32_t *raw, size_t num_bytes, 
                 const header_v6_t *header = (header_v6_t *) &raw[pos + 1];
                 CHECK_VALUE (header->magic_2, 0x52222222);
                 CHECK_VALUE (header->magic_3, 0x53333333);
-                CHECK_VALUE (header->magic_4, 0x54444444);
 
                 dataformat_version = header->dataformat_version;
 
