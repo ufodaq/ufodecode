@@ -16,7 +16,7 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/ufodecode.pc.in"
 
 install(FILES 
     ${CMAKE_CURRENT_BINARY_DIR}/ufodecode.pc 
-    DESTINATION ${LIBUFODECODE_PKGCONFIGDIR}/pkgconfig)
+    DESTINATION ${LIBUFODECODE_PKGCONFIGDIR})
 
 add_subdirectory(src)
 add_subdirectory(doc)
