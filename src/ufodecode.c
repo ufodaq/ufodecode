@@ -229,7 +229,7 @@ ufo_decode_frame_channels_v5 (UfoDecoder *decoder, uint16_t *pixel_buffer, uint3
 }
 
 static size_t
-ufo_decode_frame_channels_v6 (UfoDecoder *decoder, uint16_t *pixel_buffer, uint32_t *raw, size_t num_rows)
+ufo_decode_frame_channels_v6 (UfoDecoder *decoder, uint16_t *pixel_buffer, uint32_t *raw, size_t num_rows, uint16_t start_offset)
 {
     size_t base = 0;
     size_t index = 0;
@@ -241,7 +241,7 @@ ufo_decode_frame_channels_v6 (UfoDecoder *decoder, uint16_t *pixel_buffer, uint3
 #endif
 
     while (raw[base] != 0xAAAAAAA) {
-        const size_t row_number = raw[base] & 0xfff;
+        const size_t row_number = (raw[base] & 0xfff) - start_offset;
         const size_t pixel_number = (raw[base + 1] >> 16) & 0xfff;
 
         base += 2;
@@ -472,7 +472,7 @@ ufo_decoder_decode_frame (UfoDecoder *decoder, uint32_t *raw, size_t num_bytes, 
             break;
 
         case 6:
-            advance = ufo_decode_frame_channels_v6 (decoder, pixels, raw + pos, rows_per_frame);
+            advance = ufo_decode_frame_channels_v6 (decoder, pixels, raw + pos, rows_per_frame, meta->cmosis_start_address);
             break;
 
         default:
