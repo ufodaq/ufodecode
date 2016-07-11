@@ -241,7 +241,7 @@ ufo_decode_frame_channels_v6 (UfoDecoder *decoder, uint16_t *pixel_buffer, uint3
 #endif
 
     while ((raw[base] != 0xAAAAAAA) && ((num_bytes - base * 4) >= 32)) {
-        const size_t row_number = raw[base] & 0xfff;
+        const size_t row_number = (raw[base] & 0xfff) - start_offset;
         const size_t pixel_number = (raw[base + 1] >> 16) & 0xfff;
 
         base += 2;
