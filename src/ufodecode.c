@@ -548,6 +548,11 @@ ufo_decoder_get_next_frame (UfoDecoder *decoder, uint16_t **pixels, UfoDecoderMe
            ((raw[pos] & 0xFFFFFFF0) != 0x51111110)) /* we can only match the first part */
         pos++;
 
+    /* before even attempting to decode the non-existent frame, bail out */
+    if (pos == num_words) {
+        return EIO;
+    }
+
     advance = ufo_decoder_decode_frame (decoder, raw + pos, decoder->num_bytes - pos, *pixels, meta);
 
     /*
