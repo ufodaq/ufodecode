@@ -531,7 +531,7 @@ ufo_decoder_get_next_frame (UfoDecoder *decoder, uint16_t **pixels, UfoDecoderMe
     if (pixels == NULL)
         return 0;
 
-    if (pos >= num_words)
+    if ((pos >= num_words) || ((num_words - pos) < 4096))
         return EIO;
 
     if (num_words < 16)
