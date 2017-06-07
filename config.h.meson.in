@@ -1,0 +1,2 @@
+#mesondefine DEBUG
+#mesondefine HAVE_SSE
