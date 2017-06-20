@@ -1,2 +1,3 @@
 #cmakedefine DEBUG
 #cmakedefine HAVE_SSE
+#define IPECAMERA_WIDTH     ${IPECAMERA_WIDTH}

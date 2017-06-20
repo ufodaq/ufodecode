@@ -13,9 +13,6 @@
 #define IPECAMERA_NUM_ROWS              1088
 #define IPECAMERA_NUM_CHANNELS          16      /**< Number of channels per row */
 #define IPECAMERA_PIXELS_PER_CHANNEL    128     /**< Number of pixels per channel */
-#define IPECAMERA_WIDTH (IPECAMERA_NUM_CHANNELS * IPECAMERA_PIXELS_PER_CHANNEL) /**< Total pixel width of row */
-
-#define IPECAMERA_WIDTH_20MP            5120
 
 #define IPECAMERA_MODE_16_CHAN_IO	0
 #define IPECAMERA_MODE_4_CHAN_IO	2
@@ -233,7 +230,7 @@ ufo_decode_frame_channels_v6 (UfoDecoder *decoder, uint16_t *pixel_buffer, uint3
 {
     size_t base = 0;
     size_t index = 0;
-    const size_t space = 640;
+    const size_t space = IPECAMERA_PIXELS_PER_CHANNEL;
 
 #ifdef HAVE_SSE
     const __m64 mask_fff = _mm_set_pi32 (0xfff, 0xfff);
@@ -245,7 +242,7 @@ ufo_decode_frame_channels_v6 (UfoDecoder *decoder, uint16_t *pixel_buffer, uint3
         const size_t pixel_number = (raw[base + 1] >> 16) & 0xfff;
 
         base += 2;
-        index = row_number * IPECAMERA_WIDTH_20MP + pixel_number;
+        index = row_number * IPECAMERA_WIDTH + pixel_number;
 
 #ifdef HAVE_SSE
         const __m64 src1 = _mm_set_pi32 (raw[base], raw[base + 3]);
@@ -254,7 +251,7 @@ ufo_decode_frame_channels_v6 (UfoDecoder *decoder, uint16_t *pixel_buffer, uint3
 
 #define store(i) \
         pixel_buffer[index + i * space] = ((uint32_t *) &mm_r)[1]; \
-        pixel_buffer[index + IPECAMERA_WIDTH_20MP + i * space] = ((uint32_t *) &mm_r)[0];
+        pixel_buffer[index + IPECAMERA_WIDTH + i * space] = ((uint32_t *) &mm_r)[0];
 
         mm_r = _mm_srli_pi32 (src1, 20);
         store(0);
@@ -291,7 +288,7 @@ ufo_decode_frame_channels_v6 (UfoDecoder *decoder, uint16_t *pixel_buffer, uint3
         pixel_buffer[index + 6 * space] = (raw[base + 2] >> 12) & 0xfff;
         pixel_buffer[index + 7 * space] = raw[base + 2] & 0xfff;
 
-        index += IPECAMERA_WIDTH_20MP;
+        index += 8 * space;
         pixel_buffer[index + 0 * space] = (raw[base + 3] >> 20);
         pixel_buffer[index + 1 * space] = (raw[base + 3] >> 8) & 0xfff;
         pixel_buffer[index + 2 * space] = ((raw[base + 3] << 4) & 0xfff) | (raw[base + 4] >> 28);

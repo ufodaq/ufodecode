@@ -31,6 +31,8 @@ include_directories(
     ${CMAKE_CURRENT_BINARY_DIR}
 )
 
+set(IPECAMERA_WIDTH "5120" CACHE STRING "Sensor width in pixels (default: 5120)")
+
 configure_file("config.h.in"
                "${CMAKE_CURRENT_BINARY_DIR}/config.h")
 
