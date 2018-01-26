@@ -1,0 +1,1 @@
+option('ipecamera_width', type: 'string', value: '5120', description: 'Sensor width in pixels')

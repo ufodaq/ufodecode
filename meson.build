@@ -11,6 +11,7 @@ conf = configuration_data()
 
 conf.set('DEBUG', get_option('buildtype') == 'debug')
 conf.set('HAVE_SSE', have_sse)
+conf.set('IPECAMERA_WIDTH', get_option('ipecamera_width'))
 
 configure_file(
     input: 'config.h.meson.in',
