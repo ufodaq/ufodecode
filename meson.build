@@ -41,6 +41,6 @@ pkg = import('pkgconfig')
 pkg.generate(
     libraries: [lib],
     version: version,
-    name: 'libufodecode',
+    name: 'ufodecode',
     description: 'Decoding routines for the UFO camera'
 )
