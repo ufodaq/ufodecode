@@ -10,6 +10,11 @@
 #include <xmmintrin.h>
 #endif
 
+#define DEBUG
+//#define DEBUG_BLOCKS
+
+#define IPECAMERA_BUG_BROKEN_TAIL
+
 #define IPECAMERA_NUM_ROWS              1088
 #define IPECAMERA_NUM_CHANNELS          16      /**< Number of channels per row */
 #define IPECAMERA_PIXELS_PER_CHANNEL    128     /**< Number of pixels per channel */
@@ -241,6 +246,10 @@ ufo_decode_frame_channels_v6 (UfoDecoder *decoder, uint16_t *pixel_buffer, uint3
         const size_t row_number = (raw[base] & 0xfff) - start_offset;
         const size_t pixel_number = (raw[base + 1] >> 16) & 0xfff;
 
+#ifdef DEBUG_BLOCKS
+	printf("Row: %i Pixel: %i / %i\n", row_number, pixel_number, base * 4);
+#endif
+
         base += 2;
         index = row_number * IPECAMERA_WIDTH + pixel_number;
 
@@ -464,11 +473,11 @@ ufo_decoder_decode_frame (UfoDecoder *decoder, uint32_t *raw, size_t num_bytes, 
 
     switch (dataformat_version) {
         case 5:
-            advance = ufo_decode_frame_channels_v5 (decoder, pixels, raw + pos, num_bytes - pos, rows_per_frame, meta->output_mode);
+            advance = ufo_decode_frame_channels_v5 (decoder, pixels, raw + pos, num_bytes - 4 * (pos + 8), rows_per_frame, meta->output_mode);
             break;
 
         case 6:
-            advance = ufo_decode_frame_channels_v6 (decoder, pixels, raw + pos, num_bytes - pos, rows_per_frame, meta->cmosis_start_address);
+            advance = ufo_decode_frame_channels_v6 (decoder, pixels, raw + pos, num_bytes - 4 * (pos + 8), rows_per_frame, meta->cmosis_start_address);
             break;
 
         default:
@@ -494,8 +503,14 @@ ufo_decoder_decode_frame (UfoDecoder *decoder, uint32_t *raw, size_t num_bytes, 
     CHECK_VALUE(raw[pos], 0x01111111);
     pos++;
 
+#ifdef IPECAMERA_BUG_BROKEN_TAIL
+    meta->status1.bits = 0;
+    meta->status2.bits = 0;
+    meta->status3.bits = 0;
+#else
     if (err)
         return 0;
+#endif
 
     return pos;
 }
@@ -528,7 +543,7 @@ ufo_decoder_get_next_frame (UfoDecoder *decoder, uint16_t **pixels, UfoDecoderMe
     if (pixels == NULL)
         return 0;
 
-    if ((pos >= num_words) || ((num_words - pos) < 4096))
+    if ((pos >= num_words) || ((num_words - pos) < 1024))
         return EIO;
 
     if (num_words < 16)
