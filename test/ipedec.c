@@ -268,8 +268,8 @@ int main(int argc, char const* argv[])
     };
 
     static Options opts = {
-        .num_rows = 1088,
-        .num_columns = 2048,
+        .num_rows = 3842,
+        .num_columns = 5120,
         .verbose = 0,
         .dry_run = 0,
         .clear_frame = 0,

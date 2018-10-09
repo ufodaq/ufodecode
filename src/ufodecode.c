@@ -15,9 +15,8 @@
 
 #define IPECAMERA_BUG_BROKEN_TAIL
 
-#define IPECAMERA_NUM_ROWS              1088
-#define IPECAMERA_NUM_CHANNELS          16      /**< Number of channels per row */
-#define IPECAMERA_PIXELS_PER_CHANNEL    128     /**< Number of pixels per channel */
+#define IPECAMERA_NUM_ROWS              5120
+#define IPECAMERA_PIXELS_PER_CHANNEL    640     /**< Number of pixels per channel */
 
 #define IPECAMERA_MODE_16_CHAN_IO	0
 #define IPECAMERA_MODE_4_CHAN_IO	2
@@ -235,12 +234,14 @@ ufo_decode_frame_channels_v6 (UfoDecoder *decoder, uint16_t *pixel_buffer, uint3
 {
     size_t base = 0;
     size_t index = 0;
-    const size_t space = IPECAMERA_PIXELS_PER_CHANNEL;
+    const size_t space = IPECAMERA_WIDTH / 8
 
 #ifdef HAVE_SSE
     const __m64 mask_fff = _mm_set_pi32 (0xfff, 0xfff);
     __m64 mm_r;
 #endif
+
+    //memset(pixel_buffer, 0xFF, num_rows * IPECAMERA_WIDTH * sizeof(uint16_t));
 
     while ((raw[base] != 0xAAAAAAA) && ((num_bytes - base * 4) >= 32)) {
         const size_t row_number = (raw[base] & 0xfff) - start_offset;
