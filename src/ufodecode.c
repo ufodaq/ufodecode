@@ -234,7 +234,7 @@ ufo_decode_frame_channels_v6 (UfoDecoder *decoder, uint16_t *pixel_buffer, uint3
 {
     size_t base = 0;
     size_t index = 0;
-    const size_t space = IPECAMERA_WIDTH / 8
+    const size_t space = IPECAMERA_WIDTH / 8;
 
 #ifdef HAVE_SSE
     const __m64 mask_fff = _mm_set_pi32 (0xfff, 0xfff);
